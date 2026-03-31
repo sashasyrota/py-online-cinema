@@ -34,3 +34,12 @@ class AccountResetPasswordCompleteSchema(BaseModel):
     def validate_password(self):
         validate_password(self.password)
         return self
+
+
+class AccountLoginSchema(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class RefreshTokenSchema(BaseModel):
+    refresh_token: str

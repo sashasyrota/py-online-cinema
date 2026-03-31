@@ -7,10 +7,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.security.jwt_token import SECRET_KEY, create_token, decode_token
-from config.settings import ACTIVATION_TOKEN_EXPIRE_MINUTES, RESET_TOKEN_EXPIRE_MINUTES
-from database.models.accounts import User, UserGroup, UserGroupEnum, ActivationToken, PasswordResetToken
+from config.security.password import verify_password
+from config.settings import ACTIVATION_TOKEN_EXPIRE_MINUTES, RESET_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_MINUTES, \
+    ACCESS_TOKEN_EXPIRE_MINUTES
+from database.models.accounts import User, UserGroup, UserGroupEnum, ActivationToken, PasswordResetToken, RefreshToken
 from database.schemas.accounts import AccountResendActivationLinkRequestSchema, AccountResetPasswordRequestSchema, \
-    AccountResetPasswordCompleteSchema
+    AccountResetPasswordCompleteSchema, AccountLoginSchema, RefreshTokenSchema
 from src.database.schemas.accounts import AccountCreationRequestSchema, AccountActivationRequestSchema
 from src.database.session import get_db
 
@@ -20,7 +22,7 @@ accounts = APIRouter(
 
 
 
-async def find_user_by_email(email: str, db: AsyncSession):
+async def get_user_by_email(email: str, db: AsyncSession):
     stmt = select(User).filter_by(email=email)
     result = await db.execute(stmt)
     db_user = result.scalar_one_or_none()
@@ -101,7 +103,7 @@ async def resend_activation_link(
         account_schema: AccountResendActivationLinkRequestSchema,
         db: AsyncSession = Depends(get_db)
 ):
-    db_user = await find_user_by_email(str(account_schema.email), db=db)
+    db_user = await get_user_by_email(str(account_schema.email), db=db)
 
     if db_user:
         token = create_token(
@@ -127,7 +129,7 @@ async def reset_request_password(
         account_schema: AccountResetPasswordRequestSchema,
         db: AsyncSession = Depends(get_db)
 ):
-    db_user = await find_user_by_email(str(account_schema.email), db=db)
+    db_user = await get_user_by_email(str(account_schema.email), db=db)
     if db_user:
         reset_token_db = db_user.password_reset_token
         try:
@@ -173,3 +175,66 @@ async def reset_complete_password(
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(exc))
     raise HTTPException(status_code=400, detail="Invalid reset token")
+
+
+@accounts.post("/login/", status_code=200)
+async def login_account(
+        account_schema: AccountLoginSchema,
+        db: AsyncSession = Depends(get_db)
+):
+    db_user = await get_user_by_email(str(account_schema.email), db)
+    if db_user:
+        if verify_password(account_schema.password, str(db_user.hashed_password)):
+            try:
+                refresh_token = create_token(
+                    data={
+                        "type": "refresh",
+                        "user_id": db_user.id,
+                    },
+                    expires_delta = datetime.timedelta(minutes=REFRESH_TOKEN_EXPIRE_MINUTES)
+                )
+                refresh_token_db = RefreshToken(
+                    user_id=db_user.id,
+                    token=refresh_token,
+                    expires_at=datetime.datetime.now(timezone.utc) + datetime.timedelta(
+                            minutes=REFRESH_TOKEN_EXPIRE_MINUTES)
+                )
+                db.add(refresh_token_db)
+                await db.commit()
+
+                access_token = create_token(
+                    data={
+                        "type": "access",
+                        "user_id": db_user.id
+                    },
+                    expires_delta = datetime.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+                )
+                return {
+                    "access_token": access_token,
+                    "refresh_token": refresh_token
+                }
+            except Exception as exc:
+                raise HTTPException(status_code=500, detail=str(exc))
+    raise HTTPException(status_code=400, detail="Email or password is wrong")
+
+
+@accounts.post("/refresh/", status_code=200)
+async def refresh_token(
+        account_schema: RefreshTokenSchema,
+        db: AsyncSession = Depends(get_db)
+):
+    refresh_token = account_schema.refresh_token
+    decode_token(refresh_token)
+    stmt = select(RefreshToken).filter_by(token=refresh_token)
+    result = await db.execute(stmt)
+    refresh_token_db = result.scalar_one_or_none()
+    if refresh_token_db:
+        access_token = create_token(
+            data={
+                "type": "access",
+                "user_id": refresh_token_db.user_id
+            },
+            expires_delta=datetime.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        )
+        return {"access_token": access_token}
+    raise HTTPException(status_code=400, detail="Invalid refresh token")
