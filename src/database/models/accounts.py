@@ -41,7 +41,7 @@ class User(Base):
     group: Mapped[UserGroup] = relationship(back_populates="users")
     profile: Mapped["UserProfile"] = relationship(uselist=False, back_populates="user")
     activation_tokens: Mapped[List["ActivationToken"]] = relationship(back_populates="user", cascade="all, delete")
-    password_reset_tokens: Mapped[List["PasswordResetToken"]] = relationship(back_populates="user")
+    password_reset_token: Mapped["PasswordResetToken"] = relationship(back_populates="user", lazy="joined")
     refresh_tokens: Mapped[List["RefreshToken"]] = relationship(back_populates="user")
 
     @property
@@ -86,7 +86,7 @@ class ActivationToken(Token, Base):
 
 class PasswordResetToken(Token, Base):
     __tablename__ = "password_reset_tokens"
-    user: Mapped["User"] = relationship(back_populates="password_reset_tokens")
+    user: Mapped["User"] = relationship(back_populates="password_reset_token", lazy="joined")
 
 
 class RefreshToken(Token, Base):

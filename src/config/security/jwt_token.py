@@ -1,4 +1,6 @@
 import datetime
+from fastapi import HTTPException
+
 from jose import JWTError, jwt
 
 SECRET_KEY = "ygf5zQAC9TEpQ1SAsm5dft0jrwcHBZ1o"
@@ -15,5 +17,5 @@ def decode_token(token: str):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
-    except JWTError:
-        return None
+    except JWTError as er:
+        raise HTTPException(status_code=400, detail=str(er))
