@@ -3,8 +3,6 @@ from jose import JWTError, jwt
 
 SECRET_KEY = "ygf5zQAC9TEpQ1SAsm5dft0jrwcHBZ1o"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-REFRESH_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7
 
 def create_token(data: dict, expires_delta: datetime.timedelta = 15):
     to_encode = data.copy()

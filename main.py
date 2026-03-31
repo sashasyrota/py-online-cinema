@@ -1,6 +1,10 @@
 from fastapi import FastAPI
-app = FastAPI()
 
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
+from src.database.routes.accounts import accounts
+
+app = FastAPI(
+
+)
+
+pref = "/api/v1"
+app.include_router(accounts, prefix=pref)

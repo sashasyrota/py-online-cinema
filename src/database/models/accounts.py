@@ -1,10 +1,11 @@
 import datetime
 import enum
-from typing import Optional
+from typing import Optional, List
 
 from sqlalchemy import String, func, DateTime, Integer, ForeignKey, Text
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 
+from src.config.security.password import hash_password, verify_password
 from src.database.models.base import Base
 
 
@@ -24,22 +25,38 @@ class UserGroup(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[UserGroupEnum]
-    users = relationship("User", back_populates="group")
+    users: Mapped[List["User"]] = relationship(back_populates="group")
 
 
 class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     hashed_password: Mapped[str] = mapped_column(String(256), nullable=False)
     is_active: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime, server_default=func.now())
-    updated_at: Mapped[datetime.datetime] = mapped_column(DateTime, onupdate=func.now())
+    updated_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=func.now())
     group_id: Mapped[id] = mapped_column(Integer, ForeignKey("user_groups.id"))
-    group = relationship("UserGroup", back_populates="users")
-    profile = relationship("Profile", uselist=False, back_populates="user")
+    group: Mapped[UserGroup] = relationship(back_populates="users")
+    profile: Mapped["UserProfile"] = relationship(uselist=False, back_populates="user")
+    activation_tokens: Mapped[List["ActivationToken"]] = relationship(back_populates="user", cascade="all, delete")
+    password_reset_tokens: Mapped[List["PasswordResetToken"]] = relationship(back_populates="user")
+    refresh_tokens: Mapped[List["RefreshToken"]] = relationship(back_populates="user")
 
+    @property
+    def password(self):
+        return self.hashed_password
+
+    @password.setter
+    def password(self, value):
+        self.hashed_password = hash_password(value)
+
+    def check_password(self, value):
+        return verify_password(
+            plain_password=value,
+            hashed_password=self.hashed_password
+        )
 
 class UserProfile(Base):
     __tablename__ = "profiles"
@@ -52,4 +69,26 @@ class UserProfile(Base):
     date_of_birth: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
     info: Mapped[Optional[str]] = mapped_column(Text)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), unique=True)
-    user = relationship("User", back_populates="profile")
+    user: Mapped["User"] =  relationship("User", back_populates="profile")
+
+
+class Token:
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
+    token: Mapped[str] = mapped_column(nullable=False)
+    expires_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ActivationToken(Token, Base):
+    __tablename__ = "activation_tokens"
+    user: Mapped["User"] = relationship(back_populates="activation_tokens", lazy="joined")
+
+
+class PasswordResetToken(Token, Base):
+    __tablename__ = "password_reset_tokens"
+    user: Mapped["User"] = relationship(back_populates="password_reset_tokens")
+
+
+class RefreshToken(Token, Base):
+    __tablename__ = "refresh_tokens"
+    user: Mapped["User"] = relationship(back_populates="refresh_tokens")
