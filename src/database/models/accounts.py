@@ -5,8 +5,8 @@ from typing import Optional, List
 from sqlalchemy import String, func, DateTime, Integer, ForeignKey, Text
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 
-from src.config.security.password import hash_password, verify_password
-from src.database.models.base import Base
+from config.security.password import hash_password, verify_password
+from database.models.base import Base
 
 
 class UserGroupEnum(str, enum.Enum):

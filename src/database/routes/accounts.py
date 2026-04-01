@@ -3,18 +3,21 @@ from datetime import timezone
 
 from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends
+from fastapi.security import APIKeyHeader
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config.security.jwt_token import SECRET_KEY, create_token, decode_token
+from config.security.jwt_token import create_token, decode_token
 from config.security.password import verify_password
 from config.settings import ACTIVATION_TOKEN_EXPIRE_MINUTES, RESET_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_MINUTES, \
     ACCESS_TOKEN_EXPIRE_MINUTES
-from database.models.accounts import User, UserGroup, UserGroupEnum, ActivationToken, PasswordResetToken, RefreshToken
+from config.validators.accounts import validate_access_token
+from database.models.accounts import User, ActivationToken, PasswordResetToken, RefreshToken
 from database.schemas.accounts import AccountResendActivationLinkRequestSchema, AccountResetPasswordRequestSchema, \
-    AccountResetPasswordCompleteSchema, AccountLoginSchema, RefreshTokenSchema
+    AccountResetPasswordCompleteSchema, AccountLoginSchema, RefreshTokenSchema, AccountLogoutSchema
 from src.database.schemas.accounts import AccountCreationRequestSchema, AccountActivationRequestSchema
-from src.database.session import get_db
+from src.database.session import get_async_db
+from tasks import expired_tokens
 
 accounts = APIRouter(
     prefix="/accounts"
@@ -35,7 +38,7 @@ async def get_user_by_email(email: str, db: AsyncSession):
 )
 async def create_account(
         account_schema: AccountCreationRequestSchema,
-        db: AsyncSession = Depends(get_db)
+        db: AsyncSession = Depends(get_async_db)
 ):
     stmt = select(User).where(User.email == account_schema.email)
     result_dublicate_user = await db.execute(stmt)
@@ -72,7 +75,7 @@ async def create_account(
 )
 async def activate_account(
         account_schema: AccountActivationRequestSchema,
-        db: AsyncSession = Depends(get_db)
+        db: AsyncSession = Depends(get_async_db)
 ):
     decode_token(account_schema.activation_token)
 
@@ -101,8 +104,9 @@ async def activate_account(
 )
 async def resend_activation_link(
         account_schema: AccountResendActivationLinkRequestSchema,
-        db: AsyncSession = Depends(get_db)
+        db: AsyncSession = Depends(get_async_db)
 ):
+    expired_tokens.delay()
     db_user = await get_user_by_email(str(account_schema.email), db=db)
 
     if db_user:
@@ -127,7 +131,7 @@ async def resend_activation_link(
 )
 async def reset_request_password(
         account_schema: AccountResetPasswordRequestSchema,
-        db: AsyncSession = Depends(get_db)
+        db: AsyncSession = Depends(get_async_db)
 ):
     db_user = await get_user_by_email(str(account_schema.email), db=db)
     if db_user:
@@ -158,7 +162,7 @@ async def reset_request_password(
 @accounts.post("/reset-complete/", status_code=200)
 async def reset_complete_password(
         account_schema: AccountResetPasswordCompleteSchema,
-        db: AsyncSession = Depends(get_db)
+        db: AsyncSession = Depends(get_async_db)
 ):
     decode_token(account_schema.reset_token)
     stmt = select(PasswordResetToken).filter_by(token=account_schema.reset_token)
@@ -180,7 +184,7 @@ async def reset_complete_password(
 @accounts.post("/login/", status_code=200)
 async def login_account(
         account_schema: AccountLoginSchema,
-        db: AsyncSession = Depends(get_db)
+        db: AsyncSession = Depends(get_async_db)
 ):
     db_user = await get_user_by_email(str(account_schema.email), db)
     if db_user:
@@ -221,7 +225,7 @@ async def login_account(
 @accounts.post("/refresh/", status_code=200)
 async def refresh_token(
         account_schema: RefreshTokenSchema,
-        db: AsyncSession = Depends(get_db)
+        db: AsyncSession = Depends(get_async_db)
 ):
     refresh_token = account_schema.refresh_token
     decode_token(refresh_token)
@@ -238,3 +242,24 @@ async def refresh_token(
         )
         return {"access_token": access_token}
     raise HTTPException(status_code=400, detail="Invalid refresh token")
+
+
+authorization_header = APIKeyHeader(name="Authorization", auto_error=False)
+
+
+@accounts.post("/logout/", status_code=200)
+async def logout_account(
+        account_schema: AccountLogoutSchema,
+        header: str = Depends(authorization_header),
+        db: AsyncSession = Depends(get_async_db)
+):
+    access_token = validate_access_token(header)
+    stmt = select(RefreshToken).filter_by(token=account_schema.refresh_token)
+    result = await db.execute(stmt)
+    refresh_token_db = result.scalar_one_or_none()
+    if refresh_token_db:
+        if refresh_token_db.user_id == access_token["user_id"]:
+            await db.delete(refresh_token_db)
+            await db.commit()
+            return {"You logout from account"}
+    raise HTTPException(status_code=400, detail="Incorrect token data")

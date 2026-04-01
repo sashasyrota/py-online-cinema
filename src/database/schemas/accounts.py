@@ -43,3 +43,7 @@ class AccountLoginSchema(BaseModel):
 
 class RefreshTokenSchema(BaseModel):
     refresh_token: str
+
+
+class AccountLogoutSchema(BaseModel):
+    refresh_token: str

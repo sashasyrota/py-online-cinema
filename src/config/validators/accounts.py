@@ -2,6 +2,8 @@ import re
 
 from fastapi import HTTPException
 
+from config.security.jwt_token import decode_token
+
 
 def validate_password(password: str):
     if len(password) < 8:
@@ -43,5 +45,13 @@ def validate_password(password: str):
         )
 
 
+def validate_access_token(header: str) -> str:
+    split_header = header.split()
+    if split_header:
+        if split_header[0] != "Bearer" or len(split_header) != 2:
+            raise HTTPException(status_code=401, detail="Invalid token format")
+        token = decode_token(split_header[1])
+        if token["type"] == "access":
+            return token
 
-
+    raise HTTPException(status_code=401, detail="Not authorized")
