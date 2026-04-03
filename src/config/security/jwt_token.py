@@ -1,10 +1,13 @@
 import datetime
 from fastapi import HTTPException
+from fastapi.security import APIKeyHeader
 
 from jose import JWTError, jwt
 
 SECRET_KEY = "ygf5zQAC9TEpQ1SAsm5dft0jrwcHBZ1o"
 ALGORITHM = "HS256"
+authorization_header = APIKeyHeader(name="Authorization", auto_error=False)
+
 
 def create_token(data: dict, expires_delta: datetime.timedelta = 15):
     to_encode = data.copy()
@@ -19,3 +22,4 @@ def decode_token(token: str):
         return payload
     except JWTError as er:
         raise HTTPException(status_code=400, detail=str(er))
+

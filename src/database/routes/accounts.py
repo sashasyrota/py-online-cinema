@@ -7,7 +7,7 @@ from fastapi.security import APIKeyHeader
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config.security.jwt_token import create_token, decode_token
+from config.security.jwt_token import create_token, decode_token, authorization_header
 from config.security.password import verify_password
 from config.settings import ACTIVATION_TOKEN_EXPIRE_MINUTES, RESET_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_MINUTES, \
     ACCESS_TOKEN_EXPIRE_MINUTES
@@ -244,9 +244,6 @@ async def refresh_token(
     raise HTTPException(status_code=400, detail="Invalid refresh token")
 
 
-authorization_header = APIKeyHeader(name="Authorization", auto_error=False)
-
-
 @accounts.post("/logout/", status_code=200)
 async def logout_account(
         account_schema: AccountLogoutSchema,
@@ -263,3 +260,4 @@ async def logout_account(
             await db.commit()
             return {"You logout from account"}
     raise HTTPException(status_code=400, detail="Incorrect token data")
+

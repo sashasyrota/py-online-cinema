@@ -1,12 +1,15 @@
 import datetime
 import enum
-from typing import Optional, List
+from typing import List, TYPE_CHECKING
 
 from sqlalchemy import String, func, DateTime, Integer, ForeignKey, Text
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 
 from config.security.password import hash_password, verify_password
 from database.models.base import Base
+
+if TYPE_CHECKING:
+    from profiles import UserProfile
 
 
 class UserGroupEnum(str, enum.Enum):
@@ -15,11 +18,7 @@ class UserGroupEnum(str, enum.Enum):
     ADMIN = "admin"
 
 
-class GenderEnum(str, enum.Enum):
-    MAN = "man"
-    WOMAN = "woman"
-    
-    
+
 class UserGroup(Base):
     __tablename__ = "user_groups"
 
@@ -57,19 +56,6 @@ class User(Base):
             plain_password=value,
             hashed_password=self.hashed_password
         )
-
-class UserProfile(Base):
-    __tablename__ = "profiles"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    first_name: Mapped[Optional[str]] = mapped_column(String(64))
-    last_name: Mapped[Optional[str]] = mapped_column(String(64))
-    avatar: Mapped[str] = mapped_column(nullable=False)
-    gender: Mapped[GenderEnum]
-    date_of_birth: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
-    info: Mapped[Optional[str]] = mapped_column(Text)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), unique=True)
-    user: Mapped["User"] =  relationship("User", back_populates="profile")
 
 
 class Token:
