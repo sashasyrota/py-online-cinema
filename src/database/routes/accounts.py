@@ -1,20 +1,22 @@
 import datetime
 from datetime import timezone
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Form, UploadFile, File, Security
 from fastapi.params import Depends
 from fastapi.security import APIKeyHeader
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config.s3.s3_controller import put_image_to_minio
 from config.security.jwt_token import create_token, decode_token, authorization_header
 from config.security.password import verify_password
 from config.settings import ACTIVATION_TOKEN_EXPIRE_MINUTES, RESET_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_MINUTES, \
     ACCESS_TOKEN_EXPIRE_MINUTES
-from config.validators.accounts import validate_access_token
-from database.models.accounts import User, ActivationToken, PasswordResetToken, RefreshToken
+from config.security.jwt_token import validate_access_token
+from database.models.accounts import User, ActivationToken, PasswordResetToken, RefreshToken, UserProfile, GenderEnum
 from database.schemas.accounts import AccountResendActivationLinkRequestSchema, AccountResetPasswordRequestSchema, \
-    AccountResetPasswordCompleteSchema, AccountLoginSchema, RefreshTokenSchema, AccountLogoutSchema
+    AccountResetPasswordCompleteSchema, AccountLoginSchema, RefreshTokenSchema, AccountLogoutSchema, AccountChangeSchema
+from database.schemas.accounts import ProfileCreateRequestSchema
 from src.database.schemas.accounts import AccountCreationRequestSchema, AccountActivationRequestSchema
 from src.database.session import get_async_db
 from tasks import expired_tokens
@@ -23,10 +25,15 @@ accounts = APIRouter(
     prefix="/accounts"
 )
 
-
-
 async def get_user_by_email(email: str, db: AsyncSession):
     stmt = select(User).filter_by(email=email)
+    result = await db.execute(stmt)
+    db_user = result.scalar_one_or_none()
+    return db_user
+
+
+async def get_user_by_id(user_id: int, db: AsyncSession):
+    stmt = select(User).filter_by(id=user_id)
     result = await db.execute(stmt)
     db_user = result.scalar_one_or_none()
     return db_user
@@ -261,3 +268,61 @@ async def logout_account(
             return {"You logout from account"}
     raise HTTPException(status_code=400, detail="Incorrect token data")
 
+
+@accounts.post("/create_profile/")
+async def create_profile(
+        first_name: str = Form(None),
+        last_name: str = Form(None),
+        gender: GenderEnum = Form(None),
+        date_of_birth: datetime.date = Form(None),
+        info: str = Form(),
+        avatar: UploadFile = File(),
+        header: str = Security(authorization_header),
+        db: AsyncSession = Depends(get_async_db)
+):
+    access_token = validate_access_token(header)
+    user_id = access_token["user_id"]
+    user_db = await get_user_by_id(user_id, db)
+    if user_db.user_profile:
+        raise HTTPException(status_code=400, detail="User profile already exist")
+
+    image = await put_image_to_minio(avatar, user_id)
+    profile_schema = ProfileCreateRequestSchema(
+        first_name=first_name,
+        last_name=last_name,
+        gender=gender,
+        date_of_birth=date_of_birth,
+        info=info,
+        avatar=image.object_name,
+        user_id=user_id
+    )
+    profile_db = UserProfile(**profile_schema.model_dump())
+    db.add(profile_db)
+    await db.commit()
+    return profile_db
+
+
+@accounts.post("/change_account/")
+async def change_account_state(
+        account_change_schema: AccountChangeSchema,
+        header: str = Security(authorization_header),
+        db: AsyncSession = Depends(get_async_db)
+):
+    access_token = validate_access_token(header)
+    user_id = access_token["user_id"]
+    user_db = await get_user_by_id(user_id, db)
+    if user_db.group_id != 3:
+        raise HTTPException(status_code=403, detail="Not enough permissions for this operation")
+    user_to_change = await get_user_by_id(account_change_schema.user_id, db)
+    if user_to_change:
+        try:
+            user_to_change.group_id = account_change_schema.group_id
+            user_to_change.is_active = account_change_schema.is_active
+            await db.commit()
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=str(exc)
+            )
+        return user_to_change
+    raise HTTPException(status_code=400, detail=f"User with id: {account_change_schema.user_id} not exist")

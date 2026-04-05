@@ -1,6 +1,9 @@
+import datetime
+
 from pydantic import BaseModel, EmailStr, field_validator, model_validator
 
 from config.validators.accounts import validate_password
+from database.models.accounts import GenderEnum
 
 
 class AccountCreationRequestSchema(BaseModel):
@@ -47,3 +50,19 @@ class RefreshTokenSchema(BaseModel):
 
 class AccountLogoutSchema(BaseModel):
     refresh_token: str
+
+
+class ProfileCreateRequestSchema(BaseModel):
+    first_name: str | None
+    last_name: str | None
+    gender: GenderEnum | None
+    date_of_birth: datetime.date | None
+    info: str
+    avatar: str
+    user_id: int
+
+
+class AccountChangeSchema(BaseModel):
+    user_id: int
+    group_id: int | None
+    is_active: bool
