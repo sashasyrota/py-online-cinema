@@ -1,11 +1,10 @@
 import decimal
 import uuid
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 
-from sqlalchemy import Text, DECIMAL, ForeignKey, Table, Column
+from sqlalchemy import Text, DECIMAL, ForeignKey, Table, Column, types, UniqueConstraint, UUID, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from database.models.base import Base
+from src.database.models.base import Base
 
 
 movie_genres = Table(
@@ -30,7 +29,6 @@ movie_directors = Table(
 Column("left_id", ForeignKey("movies.id"), primary_key=True),
     Column("right_id", ForeignKey("directors.id"), primary_key=True),
 )
-
 
 class Genre(Base):
     __tablename__ = "genres"
@@ -61,13 +59,14 @@ class Certification(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(unique=True, nullable=False)
+    movies: Mapped[List["Movie"]] = relationship(back_populates="certification")
 
 
 class Movie(Base):
     __tablename__ = "movies"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    uuid: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    uuid: Mapped[str] = mapped_column(UUID(as_uuid=True), default=uuid.uuid4)
     name: Mapped[str] = mapped_column(nullable=False)
     year: Mapped[int] = mapped_column(nullable=False)
     time: Mapped[int] = mapped_column(nullable=False)
@@ -78,7 +77,10 @@ class Movie(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     price: Mapped[decimal] = mapped_column(DECIMAL(decimal_return_scale=2), nullable=False)
     certification_id: Mapped[int] = mapped_column(ForeignKey("certifications.id"), nullable=False)
-    certification: Mapped[Certification] = relationship(back_populates="movies")
-    genres: Mapped[List[Genre]] = relationship(back_populates="movies", secondary=movie_genres)
-    directors: Mapped[List[Director]] = relationship(back_populates="movies", secondary=movie_directors)
-    stars: Mapped[List[Star]] = relationship(back_populates="movies", secondary=movie_stars)
+    certification: Mapped[Certification] = relationship(back_populates="movies", lazy="joined")
+    genres: Mapped[List[Genre]] = relationship(back_populates="movies", secondary=movie_genres, lazy="joined")
+    directors: Mapped[List[Director]] = relationship(back_populates="movies", secondary=movie_directors, lazy="joined")
+    stars: Mapped[List[Star]] = relationship(back_populates="movies", secondary=movie_stars, lazy="joined")
+
+    __table_args__ = (UniqueConstraint('name', 'year', 'time', name='name_year_time_uc'),)
+

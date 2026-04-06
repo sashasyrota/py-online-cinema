@@ -96,6 +96,8 @@ class RefreshToken(Token, Base):
 
 class UserProfile(Base):
     __tablename__ = "profiles"
+    __table_args__ = {'extend_existing': True}
+
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     first_name: Mapped[Optional[str]] = mapped_column(String(64))
@@ -105,4 +107,4 @@ class UserProfile(Base):
     date_of_birth: Mapped[Optional[datetime.date]] = mapped_column(Date)
     info: Mapped[Optional[str]] = mapped_column(Text)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), unique=True)
-    user: Mapped["User"] =  relationship(back_populates="user_profile")
+    user: Mapped["User"] =  relationship(back_populates="user_profile", lazy="joined")
