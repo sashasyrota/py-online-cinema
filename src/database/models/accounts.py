@@ -8,8 +8,8 @@ from sqlalchemy.orm import mapped_column, Mapped, relationship
 from src.config.security.password import hash_password, verify_password
 from src.database.models.base import Base
 
-# if TYPE_CHECKING:
-#     from src.database.models.profiles import UserProfile
+if TYPE_CHECKING:
+    from src.database.models.movies import Like, Dislike, Comment
 
 
 class GenderEnum(str, enum.Enum):
@@ -50,6 +50,10 @@ class User(Base):
     activation_tokens: Mapped[List["ActivationToken"]] = relationship(back_populates="user", cascade="all, delete")
     password_reset_token: Mapped["PasswordResetToken"] = relationship(back_populates="user", lazy="joined")
     refresh_tokens: Mapped[List["RefreshToken"]] = relationship(back_populates="user")
+    likes: Mapped[List["Like"]] = relationship(back_populates="user", lazy="joined")
+    dislikes: Mapped[List["Dislike"]] = relationship(back_populates="user", lazy="joined")
+    comment: Mapped[List["Comment"]] = relationship(back_populates="user", lazy="joined")
+
 
     @property
     def password(self):

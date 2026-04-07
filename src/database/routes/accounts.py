@@ -29,14 +29,14 @@ accounts = APIRouter(
 async def get_user_by_email(email: str, db: AsyncSession):
     stmt = select(User).filter_by(email=email)
     result = await db.execute(stmt)
-    db_user = result.scalar_one_or_none()
+    db_user = result.unique().scalar_one_or_none()
     return db_user
 
 
 async def get_user_by_id(user_id: int, db: AsyncSession):
     stmt = select(User).filter_by(id=user_id)
     result = await db.execute(stmt)
-    db_user = result.scalar_one_or_none()
+    db_user = result.unique().scalar_one_or_none()
     return db_user
 
 

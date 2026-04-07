@@ -3,8 +3,12 @@ import uuid
 from typing import Optional, List, TYPE_CHECKING
 
 from sqlalchemy import Text, DECIMAL, ForeignKey, Table, Column, types, UniqueConstraint, UUID, Uuid
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.database.models.base import Base
+
+if TYPE_CHECKING:
+    from src.database.models.accounts import User
 
 
 movie_genres = Table(
@@ -62,6 +66,40 @@ class Certification(Base):
     movies: Mapped[List["Movie"]] = relationship(back_populates="certification")
 
 
+class Like(Base):
+    __tablename__ = "likes"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    movie_id: Mapped[int] = mapped_column(ForeignKey("movies.id"), nullable=False)
+    user: Mapped["User"] = relationship(back_populates="likes")
+    movie: Mapped["Movie"] = relationship(back_populates="likes")
+
+    __table_args__ = (UniqueConstraint('user_id', 'movie_id', name='user_movie_like_uc'),)
+
+
+class Dislike(Base):
+    __tablename__ = "dislikes"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    movie_id: Mapped[int] = mapped_column(ForeignKey("movies.id"), nullable=False)
+    user: Mapped["User"] = relationship(back_populates="dislikes")
+    movie: Mapped["Movie"] = relationship(back_populates="dislikes")
+
+    __table_args__ = (UniqueConstraint('user_id', 'movie_id', name='user_movie_dislike_uc'),)
+
+
+class Comment(Base):
+    __tablename__ = "comments"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    movie_id: Mapped[int] = mapped_column(ForeignKey("movies.id"), nullable=False)
+    user: Mapped["User"] = relationship(back_populates="comments")
+    movie: Mapped["Movie"] = relationship(back_populates="comments")
+
+
 class Movie(Base):
     __tablename__ = "movies"
 
@@ -81,6 +119,16 @@ class Movie(Base):
     genres: Mapped[List[Genre]] = relationship(back_populates="movies", secondary=movie_genres, lazy="joined")
     directors: Mapped[List[Director]] = relationship(back_populates="movies", secondary=movie_directors, lazy="joined")
     stars: Mapped[List[Star]] = relationship(back_populates="movies", secondary=movie_stars, lazy="joined")
+    likes: Mapped[List[Like]] = relationship(back_populates="movie", lazy="joined")
+    dislikes: Mapped[List[Dislike]] = relationship(back_populates="movie", lazy="joined")
+    comment: Mapped[List[Comment]] = relationship(back_populates="movie", lazy="joined")
 
     __table_args__ = (UniqueConstraint('name', 'year', 'time', name='name_year_time_uc'),)
 
+    @property
+    def likes_count(self):
+        return len(self.likes)
+
+    @property
+    def dislikes_count(self):
+        return len(self.dislikes)
