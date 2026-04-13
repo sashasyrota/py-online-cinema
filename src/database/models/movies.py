@@ -2,7 +2,7 @@ import decimal
 import uuid
 from typing import Optional, List, TYPE_CHECKING
 
-from sqlalchemy import Text, DECIMAL, ForeignKey, Table, Column, types, UniqueConstraint, UUID, Uuid
+from sqlalchemy import Text, DECIMAL, ForeignKey, Table, Column, types, UniqueConstraint, UUID, Uuid, String
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.database.models.base import Base
@@ -14,24 +14,24 @@ if TYPE_CHECKING:
 movie_genres = Table(
     "movie_genres",
     Base.metadata,
-Column("left_id", ForeignKey("movies.id"), primary_key=True),
-    Column("right_id", ForeignKey("genres.id"), primary_key=True),
+Column("movies_id", ForeignKey("movies.id"), primary_key=True),
+    Column("genres_id", ForeignKey("genres.id"), primary_key=True),
 )
 
 
 movie_stars = Table(
     "movie_stars",
     Base.metadata,
-Column("left_id", ForeignKey("movies.id"), primary_key=True),
-    Column("right_id", ForeignKey("stars.id"), primary_key=True),
+Column("movies_id", ForeignKey("movies.id"), primary_key=True),
+    Column("stars_id", ForeignKey("stars.id"), primary_key=True),
 )
 
 
 movie_directors = Table(
     "movie_directors",
     Base.metadata,
-Column("left_id", ForeignKey("movies.id"), primary_key=True),
-    Column("right_id", ForeignKey("directors.id"), primary_key=True),
+Column("movies_id", ForeignKey("movies.id"), primary_key=True),
+    Column("directors_id", ForeignKey("directors.id"), primary_key=True),
 )
 
 class Genre(Base):
@@ -94,6 +94,7 @@ class Comment(Base):
     __tablename__ = "comments"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    text: Mapped[str] = mapped_column(String(1000), nullable=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     movie_id: Mapped[int] = mapped_column(ForeignKey("movies.id"), nullable=False)
     user: Mapped["User"] = relationship(back_populates="comments")
@@ -121,7 +122,7 @@ class Movie(Base):
     stars: Mapped[List[Star]] = relationship(back_populates="movies", secondary=movie_stars, lazy="joined")
     likes: Mapped[List[Like]] = relationship(back_populates="movie", lazy="joined")
     dislikes: Mapped[List[Dislike]] = relationship(back_populates="movie", lazy="joined")
-    comment: Mapped[List[Comment]] = relationship(back_populates="movie", lazy="joined")
+    comments: Mapped[List[Comment]] = relationship(back_populates="movie", lazy="joined")
 
     __table_args__ = (UniqueConstraint('name', 'year', 'time', name='name_year_time_uc'),)
 

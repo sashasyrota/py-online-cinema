@@ -5,12 +5,16 @@ from pydantic import BaseModel, ConfigDict
 from database.models.movies import Like
 
 
-class CertificationSchema(BaseModel):
+class MovieFieldListSchema(BaseModel):
     name: str
 
 
 class LikeDislikeSchema(BaseModel):
     user_id: int
+
+
+class CommentSchema(BaseModel):
+    id: int
 
 
 class MovieListResponseSchema(BaseModel):
@@ -22,10 +26,10 @@ class MovieListResponseSchema(BaseModel):
     imdb: float
     votes: int
     price: decimal.Decimal
-    certification: CertificationSchema
-    genres: list[str] | None
-    directors: list[str] | None
-    stars: list[str] | None
+    certification: MovieFieldListSchema
+    genres: list[MovieFieldListSchema] | None
+    directors: list[MovieFieldListSchema] | None
+    stars: list[MovieFieldListSchema] | None
     likes: list[LikeDislikeSchema]
     likes_count: int
     dislikes: list[LikeDislikeSchema]
@@ -34,6 +38,7 @@ class MovieListResponseSchema(BaseModel):
 
 
 class MovieDetailResponseSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
 
     name: str
     year: int
@@ -44,7 +49,16 @@ class MovieDetailResponseSchema(BaseModel):
     gross: float | None
     description: str | None
     price: decimal.Decimal
-    certification: CertificationSchema
-    genres: list[str] | None
-    directors: list[str] | None
-    stars: list[str] | None
+    certification: MovieFieldListSchema
+    genres: list[MovieFieldListSchema] | None
+    directors: list[MovieFieldListSchema] | None
+    stars: list[MovieFieldListSchema] | None
+    likes: list[LikeDislikeSchema]
+    likes_count: int
+    dislikes: list[LikeDislikeSchema]
+    dislikes_count: int
+    comments: list[CommentSchema]
+
+
+class MovieCommentCreationSchema(BaseModel):
+    text: str

@@ -52,7 +52,7 @@ class User(Base):
     refresh_tokens: Mapped[List["RefreshToken"]] = relationship(back_populates="user")
     likes: Mapped[List["Like"]] = relationship(back_populates="user", lazy="joined")
     dislikes: Mapped[List["Dislike"]] = relationship(back_populates="user", lazy="joined")
-    comment: Mapped[List["Comment"]] = relationship(back_populates="user", lazy="joined")
+    comments: Mapped[List["Comment"]] = relationship(back_populates="user", lazy="joined")
 
 
     @property
