@@ -1,5 +1,5 @@
 from pydantic import BaseModel
 
 
-class CartItemCreateSchema(BaseModel):
+class OrderItemCreateSchema(BaseModel):
     movie_id: int

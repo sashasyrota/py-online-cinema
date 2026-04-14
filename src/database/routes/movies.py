@@ -40,9 +40,11 @@ async def get_movies(
         stars: str | None = None,
         directors: str | None = None,
         sort_by: str | None = None,
+        page: int | None = 1,
+        per_page: int | None = 10,
         db: AsyncSession = Depends(get_async_db)
 ):
-    stmt = select(Movie)
+    stmt = select(Movie).limit(per_page).offset((page - 1) * per_page)
 
     if sort_by:
         if sort_by == "name":

@@ -5,6 +5,7 @@ from typing import List, TYPE_CHECKING, Optional
 from sqlalchemy import String, func, DateTime, Integer, ForeignKey, Text, Date
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 
+from src.database.models.payments import Payment
 from src.config.security.password import hash_password, verify_password
 from src.database.models.base import Base
 
@@ -53,7 +54,7 @@ class User(Base):
     likes: Mapped[List["Like"]] = relationship(back_populates="user", lazy="joined")
     dislikes: Mapped[List["Dislike"]] = relationship(back_populates="user", lazy="joined")
     comments: Mapped[List["Comment"]] = relationship(back_populates="user", lazy="joined")
-
+    payments: Mapped[List["Payment"]] = relationship(back_populates="user", lazy="joined")
 
     @property
     def password(self):

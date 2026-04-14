@@ -24,4 +24,4 @@ class Cart(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, unique=True)
-    cart_items: Mapped[List[CartItem]] = relationship(back_populates="cart")
+    cart_items: Mapped[List[CartItem]] = relationship(back_populates="cart", lazy="joined")

@@ -5,6 +5,8 @@ from typing import Optional, List, TYPE_CHECKING
 from sqlalchemy import Text, DECIMAL, ForeignKey, Table, Column, types, UniqueConstraint, UUID, Uuid, String
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from src.database.models.orders import OrderItem
 from src.database.models.base import Base
 
 if TYPE_CHECKING:
@@ -114,7 +116,7 @@ class Movie(Base):
     meta_score: Mapped[Optional[float]] = mapped_column(nullable=True)
     gross: Mapped[Optional[float]] = mapped_column(nullable=True)
     description: Mapped[str] = mapped_column(Text, nullable=False)
-    price: Mapped[decimal] = mapped_column(DECIMAL(decimal_return_scale=2), nullable=False)
+    price: Mapped[decimal] = mapped_column(DECIMAL(10,2), nullable=False)
     certification_id: Mapped[int] = mapped_column(ForeignKey("certifications.id"), nullable=False)
     certification: Mapped[Certification] = relationship(back_populates="movies", lazy="joined")
     genres: Mapped[List[Genre]] = relationship(back_populates="movies", secondary=movie_genres, lazy="joined")
@@ -123,6 +125,7 @@ class Movie(Base):
     likes: Mapped[List[Like]] = relationship(back_populates="movie", lazy="joined")
     dislikes: Mapped[List[Dislike]] = relationship(back_populates="movie", lazy="joined")
     comments: Mapped[List[Comment]] = relationship(back_populates="movie", lazy="joined")
+    order_items: Mapped[List["OrderItem"]] = relationship(back_populates="movie", lazy="joined")
 
     __table_args__ = (UniqueConstraint('name', 'year', 'time', name='name_year_time_uc'),)
 
