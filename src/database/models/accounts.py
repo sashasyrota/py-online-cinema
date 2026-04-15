@@ -10,7 +10,15 @@ from src.config.security.password import hash_password, verify_password
 from src.database.models.base import Base
 
 if TYPE_CHECKING:
-    from src.database.models.movies import Like, Dislike, Comment
+    from src.database.models.movies import (
+        Like,
+        Dislike,
+        Comment,
+        Movie,
+        movies_users_who_add_to_favourite,
+        Rate
+    )
+
 
 
 class GenderEnum(str, enum.Enum):
@@ -55,6 +63,9 @@ class User(Base):
     dislikes: Mapped[List["Dislike"]] = relationship(back_populates="user", lazy="joined")
     comments: Mapped[List["Comment"]] = relationship(back_populates="user", lazy="joined")
     payments: Mapped[List["Payment"]] = relationship(back_populates="user", lazy="joined")
+    favourite_movies: Mapped[List["Movie"]] = relationship(back_populates="who_add_to_favourite", secondary="movies_users_who_add_to_favourite", lazy="joined")
+    rates: Mapped[List["Rate"]] = relationship(back_populates="user", lazy="joined")
+
 
     @property
     def password(self):

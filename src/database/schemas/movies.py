@@ -1,6 +1,6 @@
 import decimal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from database.models.movies import Like
 
@@ -62,3 +62,16 @@ class MovieDetailResponseSchema(BaseModel):
 
 class MovieCommentCreationSchema(BaseModel):
     text: str
+
+
+class MovieFavouriteRequestSchema(BaseModel):
+    movie_id: int
+
+
+class RateRequestSchema(BaseModel):
+    rate: int = Field(le=10, ge=0)
+
+
+class GenreResponseSchema(BaseModel):
+    name: str
+    movies_count: int

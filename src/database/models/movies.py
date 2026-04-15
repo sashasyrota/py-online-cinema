@@ -2,16 +2,23 @@ import decimal
 import uuid
 from typing import Optional, List, TYPE_CHECKING
 
-from sqlalchemy import Text, DECIMAL, ForeignKey, Table, Column, types, UniqueConstraint, UUID, Uuid, String
+from sqlalchemy import Text, DECIMAL, ForeignKey, Table, Column, types, UniqueConstraint, UUID, Uuid, String, Integer
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.database.models.orders import OrderItem
 from src.database.models.base import Base
 
 if TYPE_CHECKING:
     from src.database.models.accounts import User
+    from src.database.models.orders import OrderItem
 
+
+movies_users_who_add_to_favourite= Table(
+    "movies_users_who_add_to_favourite",
+    Base.metadata,
+Column("movies_id", ForeignKey("movies.id"), primary_key=True),
+    Column("users_id", ForeignKey("users.id"), primary_key=True),
+)
 
 movie_genres = Table(
     "movie_genres",
@@ -41,7 +48,11 @@ class Genre(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(unique=True, nullable=False)
-    movies: Mapped[List["Movie"]] = relationship(secondary=movie_genres)
+    movies: Mapped[List["Movie"]] = relationship(secondary=movie_genres, lazy="joined")
+
+    @property
+    def movies_count(self):
+        return len(self.movies)
 
 
 class Star(Base):
@@ -92,6 +103,19 @@ class Dislike(Base):
     __table_args__ = (UniqueConstraint('user_id', 'movie_id', name='user_movie_dislike_uc'),)
 
 
+class Rate(Base):
+    __tablename__ = "rates"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    rate: Mapped[int] = mapped_column(nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    movie_id: Mapped[int] = mapped_column(ForeignKey("movies.id"), nullable=False)
+    user: Mapped["User"] = relationship(back_populates="rates")
+    movie: Mapped["Movie"] = relationship(back_populates="rates")
+
+    __table_args__ = (UniqueConstraint('user_id', 'movie_id', name='user_movie_rate_uc'),)
+
+
 class Comment(Base):
     __tablename__ = "comments"
 
@@ -126,6 +150,9 @@ class Movie(Base):
     dislikes: Mapped[List[Dislike]] = relationship(back_populates="movie", lazy="joined")
     comments: Mapped[List[Comment]] = relationship(back_populates="movie", lazy="joined")
     order_items: Mapped[List["OrderItem"]] = relationship(back_populates="movie", lazy="joined")
+    who_add_to_favourite: Mapped[List["User"]] = relationship(back_populates="favourite_movies", secondary=movies_users_who_add_to_favourite, lazy="joined")
+    rates: Mapped[List[Rate]] = relationship(back_populates="movie", lazy="joined")
+
 
     __table_args__ = (UniqueConstraint('name', 'year', 'time', name='name_year_time_uc'),)
 

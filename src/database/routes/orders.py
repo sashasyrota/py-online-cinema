@@ -1,16 +1,18 @@
+from os import access
+
 from asyncpg import UniqueViolationError
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config.security.jwt_token import authorization_header
+from config.security.jwt_token import authorization_header, validate_access_token
 from database.models.orders import Order, OrderItem, OrderStatusEnum
 from database.routes.movies import get_movie_by_id
 from database.schemas.orders import OrderItemCreateSchema
 from database.session import get_async_db
 
 orders = APIRouter(
-    prefix="/shopping_orders"
+    prefix="/orders"
 )
 
 
@@ -21,18 +23,36 @@ async def get_pending_order_by_user_id(user_id: int, db: AsyncSession = Depends(
     return order_db
 
 
-@orders.post("/orders/create_order/")
+async def get_order_by_id(id: int, db: AsyncSession):
+    stmt = select(Order).filter_by(id=id)
+    result = await db.execute(stmt)
+    order_db = result.unique().scalar_one_or_none()
+    return order_db
+
+
+async def get_order_item_by_order_id(order_id: int, db: AsyncSession):
+    stmt = select(OrderItem.id).filter_by(order_id=order_id)
+    result = await db.execute(stmt)
+    order_item_db = result.scalars().all()
+    return order_item_db
+
+
+@orders.post("/create_order/")
 async def create_order(
         order_item_schema: OrderItemCreateSchema,
-        db: AsyncSession = Depends(get_async_db),
         header: str = Depends(authorization_header),
+        db: AsyncSession = Depends(get_async_db),
 ):
-    user_id = 39
+    access_token = validate_access_token(header)
+    user_id = access_token["user_id"]
     order_db = await get_pending_order_by_user_id(user_id=user_id, db=db)
     movie_db = await get_movie_by_id(
         movie_id=order_item_schema.movie_id,
         db=db
     )
+    if not movie_db:
+        raise HTTPException(status_code=404, detail=f"Movie with id: {order_item_schema.movie_id} not found")
+
     try:
         if order_db:
 

@@ -4,8 +4,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import JSONResponse, Response
 
-from config.security.jwt_token import authorization_header
+from config.security.jwt_token import authorization_header, validate_access_token
 from database.models.shopping_carts import Cart, CartItem
+from database.routes.accounts import get_user_by_id
 from database.schemas.shopping_carts import CartItemCreateSchema
 from database.session import get_async_db
 
@@ -23,10 +24,13 @@ async def get_card_by_user_id(user_id: int, db: AsyncSession = Depends(get_async
 
 @carts.get("/carts/")
 async def get_carts(
+        header: str = Depends(authorization_header),
         db: AsyncSession = Depends(get_async_db),
-        # header: str = Depends(authorization_header),
-
 ):
+    access_token = validate_access_token(header=header)
+    user_db = await get_user_by_id(user_id=access_token["user_id"], db=db)
+    if user_db.group_id == 1:
+        raise HTTPException(status_code=403, detail="You don`t have permissions to this action")
     stmt = select(Cart)
     result = await db.execute(stmt)
     carts_db = result.unique().scalars().all()
@@ -36,13 +40,20 @@ async def get_carts(
 @carts.get("/carts/{cart_id:int}/")
 async def get_cart_detail(
         cart_id: int,
-        # header: str = Depends(authorization_header),
+        header: str = Depends(authorization_header),
         db: AsyncSession = Depends(get_async_db)
 ):
-    stmt = select(Cart).filter_by(id=1)
+    access_token = validate_access_token(header=header)
+    user_id = access_token["user_id"]
+    user_db = await get_user_by_id(user_id=user_id, db=db)
+
+    stmt = select(Cart).filter_by(id=cart_id)
     result = await db.execute(stmt)
     cart_db = result.unique().scalar_one_or_none()
-    return cart_db
+
+    if user_db.group_id != 1 or cart_db.user_id == user_id:
+        return cart_db
+    raise HTTPException(status_code=403, detail="You dont have permission to this action")
 
 
 @carts.post("/carts/add_item/")

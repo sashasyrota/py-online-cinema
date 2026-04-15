@@ -26,7 +26,7 @@ class Order(Base):
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime, server_default=func.now())
     status: Mapped[OrderStatusEnum] = mapped_column(default=OrderStatusEnum.PENDING)
     total_amount: Mapped[decimal] = mapped_column(DECIMAL(10,2), nullable=False, default=decimal.Decimal("0.00"))
-    order_items: Mapped["OrderItem"] = relationship(back_populates="order")
+    order_items: Mapped[list["OrderItem"]] = relationship(back_populates="order", lazy="joined")
 
 
 class OrderItem(Base):
