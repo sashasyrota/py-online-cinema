@@ -1,9 +1,9 @@
 from fastapi import FastAPI
 
-from database.routes.movies import movies
-from database.routes.orders import orders
-from database.routes.payments import payments
-from database.routes.shopping_carts import carts
+from src.database.routes.movies import movies
+from src.database.routes.orders import orders
+from src.database.routes.payments import payments
+from src.database.routes.shopping_carts import carts
 from src.database.routes.accounts import accounts
 
 app = FastAPI(

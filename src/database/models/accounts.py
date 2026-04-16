@@ -11,12 +11,15 @@ from src.database.models.base import Base
 
 if TYPE_CHECKING:
     from src.database.models.movies import (
-        Like,
-        Dislike,
+        LikeMovie,
+        DislikeMovie,
         Comment,
         Movie,
         movies_users_who_add_to_favourite,
-        Rate
+        Rate,
+        ReplyComment,
+        LikeComment,
+        DislikeComment
     )
 
 
@@ -59,12 +62,15 @@ class User(Base):
     activation_tokens: Mapped[List["ActivationToken"]] = relationship(back_populates="user", cascade="all, delete")
     password_reset_token: Mapped["PasswordResetToken"] = relationship(back_populates="user", lazy="joined")
     refresh_tokens: Mapped[List["RefreshToken"]] = relationship(back_populates="user")
-    likes: Mapped[List["Like"]] = relationship(back_populates="user", lazy="joined")
-    dislikes: Mapped[List["Dislike"]] = relationship(back_populates="user", lazy="joined")
+    likes_movies: Mapped[List["LikeMovie"]] = relationship(back_populates="user", lazy="joined")
+    dislikes_movies: Mapped[List["DislikeMovie"]] = relationship(back_populates="user", lazy="joined")
     comments: Mapped[List["Comment"]] = relationship(back_populates="user", lazy="joined")
     payments: Mapped[List["Payment"]] = relationship(back_populates="user", lazy="joined")
     favourite_movies: Mapped[List["Movie"]] = relationship(back_populates="who_add_to_favourite", secondary="movies_users_who_add_to_favourite", lazy="joined")
     rates: Mapped[List["Rate"]] = relationship(back_populates="user", lazy="joined")
+    # replies: Mapped[List["ReplyComment"]] = relationship(back_populates="user")
+    likes_comments: Mapped[List["LikeComment"]] = relationship(back_populates="user", lazy="joined")
+    dislikes_comments: Mapped[List["DislikeComment"]] = relationship(back_populates="user", lazy="joined")
 
 
     @property

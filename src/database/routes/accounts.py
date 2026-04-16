@@ -14,7 +14,6 @@ from config.settings import ACTIVATION_TOKEN_EXPIRE_MINUTES, RESET_TOKEN_EXPIRE_
     ACCESS_TOKEN_EXPIRE_MINUTES
 from config.security.jwt_token import validate_access_token
 from database.models.accounts import User, ActivationToken, PasswordResetToken, RefreshToken, UserProfile, GenderEnum
-from database.models.movies import Movie, Genre
 from database.schemas.accounts import AccountResendActivationLinkRequestSchema, AccountResetPasswordRequestSchema, \
     AccountResetPasswordCompleteSchema, AccountLoginSchema, RefreshTokenSchema, AccountLogoutSchema, AccountChangeSchema
 from database.schemas.accounts import ProfileCreateRequestSchema

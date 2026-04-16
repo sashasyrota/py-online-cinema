@@ -60,7 +60,11 @@ class Star(Base):
     
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(unique=True, nullable=False)
-    movies: Mapped[List["Movie"]] = relationship(secondary=movie_stars)
+    movies: Mapped[List["Movie"]] = relationship(secondary=movie_stars, lazy="joined")
+
+    @property
+    def movies_count(self):
+        return len(self.movies)
 
 
 class Director(Base):
@@ -79,26 +83,26 @@ class Certification(Base):
     movies: Mapped[List["Movie"]] = relationship(back_populates="certification")
 
 
-class Like(Base):
-    __tablename__ = "likes"
+class LikeMovie(Base):
+    __tablename__ = "likes_movies"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     movie_id: Mapped[int] = mapped_column(ForeignKey("movies.id"), nullable=False)
-    user: Mapped["User"] = relationship(back_populates="likes")
-    movie: Mapped["Movie"] = relationship(back_populates="likes")
+    user: Mapped["User"] = relationship(back_populates="likes_movies")
+    movie: Mapped["Movie"] = relationship(back_populates="likes_movies")
 
     __table_args__ = (UniqueConstraint('user_id', 'movie_id', name='user_movie_like_uc'),)
 
 
-class Dislike(Base):
-    __tablename__ = "dislikes"
+class DislikeMovie(Base):
+    __tablename__ = "dislikes_movies"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     movie_id: Mapped[int] = mapped_column(ForeignKey("movies.id"), nullable=False)
-    user: Mapped["User"] = relationship(back_populates="dislikes")
-    movie: Mapped["Movie"] = relationship(back_populates="dislikes")
+    user: Mapped["User"] = relationship(back_populates="dislikes_movies")
+    movie: Mapped["Movie"] = relationship(back_populates="dislikes_movies")
 
     __table_args__ = (UniqueConstraint('user_id', 'movie_id', name='user_movie_dislike_uc'),)
 
@@ -125,7 +129,9 @@ class Comment(Base):
     movie_id: Mapped[int] = mapped_column(ForeignKey("movies.id"), nullable=False)
     user: Mapped["User"] = relationship(back_populates="comments")
     movie: Mapped["Movie"] = relationship(back_populates="comments")
-
+    reply_comment_id: Mapped[int] = mapped_column(ForeignKey("comments.id"), nullable=True)
+    likes_comments: Mapped[List["LikeComment"]] = relationship(back_populates="comment", lazy="joined")
+    dislikes_comments: Mapped[List["DislikeComment"]] = relationship(back_populates="comment", lazy="joined")
 
 class Movie(Base):
     __tablename__ = "movies"
@@ -146,8 +152,8 @@ class Movie(Base):
     genres: Mapped[List[Genre]] = relationship(back_populates="movies", secondary=movie_genres, lazy="joined")
     directors: Mapped[List[Director]] = relationship(back_populates="movies", secondary=movie_directors, lazy="joined")
     stars: Mapped[List[Star]] = relationship(back_populates="movies", secondary=movie_stars, lazy="joined")
-    likes: Mapped[List[Like]] = relationship(back_populates="movie", lazy="joined")
-    dislikes: Mapped[List[Dislike]] = relationship(back_populates="movie", lazy="joined")
+    likes_movies: Mapped[List[LikeMovie]] = relationship(back_populates="movie", lazy="joined")
+    dislikes_movies: Mapped[List[DislikeMovie]] = relationship(back_populates="movie", lazy="joined")
     comments: Mapped[List[Comment]] = relationship(back_populates="movie", lazy="joined")
     order_items: Mapped[List["OrderItem"]] = relationship(back_populates="movie", lazy="joined")
     who_add_to_favourite: Mapped[List["User"]] = relationship(back_populates="favourite_movies", secondary=movies_users_who_add_to_favourite, lazy="joined")
@@ -158,8 +164,33 @@ class Movie(Base):
 
     @property
     def likes_count(self):
-        return len(self.likes)
+        return len(self.likes_movies)
 
     @property
     def dislikes_count(self):
-        return len(self.dislikes)
+        return len(self.dislikes_movies)
+
+
+class LikeComment(Base):
+    __tablename__ = "likes_comments"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    comment_id: Mapped[int] = mapped_column(ForeignKey("comments.id"), nullable=False)
+    user: Mapped["User"] = relationship(back_populates="likes_comments")
+    comment: Mapped["Comment"] = relationship(back_populates="likes_comments")
+
+    __table_args__ = (UniqueConstraint('user_id', 'comment_id', name='user_comment_like_uc'),)
+
+
+class DislikeComment(Base):
+    __tablename__ = "dislikes_comments"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    comment_id: Mapped[int] = mapped_column(ForeignKey("comments.id"), nullable=False)
+    user: Mapped["User"] = relationship(back_populates="dislikes_comments")
+    comment: Mapped["Comment"] = relationship(back_populates="dislikes_comments")
+
+
+    __table_args__ = (UniqueConstraint('user_id', 'comment_id', name='user_comment_dislike_uc'),)
