@@ -14,15 +14,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.security.jwt_token import authorization_header, validate_access_token
 from config.smtp.smtp_controller import sent_message
-from database.models.accounts import User
-from database.models.movies import Movie, Certification, Genre, Director, Star, LikeMovie, DislikeMovie, Comment, Rate, \
+from src.database.models.accounts import User
+from src.database.models.movies import Movie, Certification, Genre, Director, Star, LikeMovie, DislikeMovie, Comment, Rate, \
     LikeComment, DislikeComment
-from database.routes.accounts import get_user_by_id
+from src.database.models.orders import OrderItem, Order, OrderStatusEnum
+from src.database.models.shopping_carts import CartItem
+from src.database.routes.accounts import get_user_by_id, validate_is_staff_user
 from database.schemas.movies import MovieListResponseSchema, MovieDetailResponseSchema, MovieCommentCreationSchema, \
     MovieFavouriteRequestSchema, RateRequestSchema, GenreStarResponseSchema, CommentReplySchema, \
     MovieCommentListResponseSchema, MovieCreateRequestSchema, MovieUpdateRequestSchema, GenreStarDetailResponseSchema, \
     GenreCreateSchema, GenreUpdateSchema, GenreStarResponseSchema, StarCreateSchema, StarUpdateSchema
-from database.session import get_async_db
+from src.database import get_async_db
 
 
 load_dotenv()
@@ -42,8 +44,10 @@ async def get_movie_by_id(movie_id: int, db: AsyncSession):
 async def get_model_db_by_id(model_obj, model_id, db):
     stmt = select(model_obj).filter_by(id=model_id)
     result = await db.execute(stmt)
-    return result.unique().scalar_one_or_none()
-
+    model_db = result.unique().scalar_one_or_none()
+    if not model_db:
+        raise HTTPException(status_code=404, detail=f"{model_obj.__name__} with id: {model_id} not exist in db")
+    return model_db
 
 async def get_model_list_by_ids(model_obj, model_list_ids, db):
     stmt_genres = select(model_obj).filter(model_obj.id.in_(model_list_ids))
@@ -159,11 +163,7 @@ async def create_movie(
         header: str = Depends(authorization_header),
         db: AsyncSession = Depends(get_async_db)
 ):
-    access_token = validate_access_token(header)
-    user_id = access_token["user_id"]
-    user_db = await get_user_by_id(user_id, db)
-    if user_db.group_id == 1:
-        raise HTTPException(status_code=403, detail="You don`t have permission to this action")
+    await validate_is_staff_user(header, db)
 
     certification_db = await get_model_db_by_id(Certification, movie_params.certification, db)
     genres_db = await get_model_list_by_ids(Genre, movie_params.genres, db)
@@ -195,12 +195,7 @@ async def update_movie(
         header: str = Depends(authorization_header),
         db: AsyncSession = Depends(get_async_db)
 ):
-    access_token = validate_access_token(header)
-    user_id = access_token["user_id"]
-    user_db = await get_user_by_id(user_id, db)
-    if user_db.group_id == 1:
-        raise HTTPException(status_code=403, detail="You don`t have permission to this action")
-
+    await validate_is_staff_user(header, db)
     certification_db = await get_model_db_by_id(Certification, movie_params.certification, db)
     genres_db = await get_model_list_by_ids(Genre, movie_params.genres, db)
     directors_db = await get_model_list_by_ids(Director, movie_params.directors, db)
@@ -229,17 +224,31 @@ async def update_movie(
 @movies.delete("/movies/{movie_id:int}/", status_code=204)
 async def delete_movie(
         movie_id: int,
+        background_tasks: BackgroundTasks,
         header: str = Depends(authorization_header),
         db: AsyncSession = Depends(get_async_db)
 ):
-    access_token = validate_access_token(header)
-    user_id = access_token["user_id"]
-    user_db = await get_user_by_id(user_id, db)
-    movie_db = await get_movie_by_id(movie_id, db)
-    if not movie_db:
-        raise HTTPException(status_code=404, detail=f"Movie with this id: {movie_id} not exist in db")
-    if user_db.group_id == 1:
-        raise HTTPException(status_code=403, detail="You don`t have permission to this action")
+    user_db = await validate_is_staff_user(header, db)
+
+    movie_db = await get_model_db_by_id(Movie, movie_id, db)
+
+    stmt_paid_order = select(Order).filter(Order.order_items.any(OrderItem.movie_id == movie_id),  Order.status == OrderStatusEnum.PAID)
+    result = await db.execute(stmt_paid_order)
+    orders_db = result.unique().scalars().all()
+    if orders_db:
+        raise HTTPException(status_code=403, detail="This movie at least one user has purchased, not deleted")
+
+    stmt_movie_in_cart = select(CartItem).filter(CartItem.movie_id == movie_id)
+    result = await db.execute(stmt_movie_in_cart)
+    db_carts = result.unique().scalars().all()
+    if db_carts:
+        background_tasks.add_task(
+            sent_message,
+            f"Deletion a movie with id: {movie_id}, that exist in carts",
+            "Very important",
+            user_db.email
+        )
+
     try:
         await db.delete(movie_db)
         await db.commit()
@@ -279,9 +288,7 @@ async def get_genre_detail(
         genre_id: int,
         db: AsyncSession = Depends(get_async_db)
 ):
-    stmt = select(Genre).filter_by(id=genre_id)
-    result = await db.execute(stmt)
-    genre_db = result.unique().scalar_one_or_none()
+    genre_db = await get_model_db_by_id(Genre, genre_id, db)
     return genre_db
 
 
@@ -302,12 +309,7 @@ async def create_genre(
         header: str = Depends(authorization_header),
         db: AsyncSession = Depends(get_async_db)
 ):
-    access_token = validate_access_token(header)
-    user_id = access_token["user_id"]
-    user_db = await get_user_by_id(user_id, db)
-    if user_db.group_id == 1:
-        raise HTTPException(status_code=403, detail="You don`t have permission to this action")
-
+    await validate_is_staff_user(header, db)
     genre_db = Genre(name=genre_schema.name)
     db.add(genre_db)
     await db.commit()
@@ -321,18 +323,8 @@ async def update_genre(
         header: str = Depends(authorization_header),
         db: AsyncSession = Depends(get_async_db)
 ):
-    access_token = validate_access_token(header)
-    user_id = access_token["user_id"]
-    user_db = await get_user_by_id(user_id, db)
-    if user_db.group_id == 1:
-        raise HTTPException(status_code=403, detail="You don`t have permission to this action")
-
-    stmt = select(Genre).filter_by(id=genre_id)
-    result = await db.execute(stmt)
-    genre_db = result.unique().scalar_one_or_none()
-    if not genre_db:
-        raise HTTPException(status_code=404, detail=f"Genre with id: {genre_id} not exist")
-
+    await validate_is_staff_user(header, db)
+    genre_db = await get_model_db_by_id(Genre, genre_id, db)
     genre_db.name = genre_schema.name
     await db.commit()
     return genre_db
@@ -344,16 +336,8 @@ async def delete_genre(
         header: str = Depends(authorization_header),
         db: AsyncSession = Depends(get_async_db)
 ):
-    access_token = validate_access_token(header)
-    user_id = access_token["user_id"]
-    user_db = await get_user_by_id(user_id, db)
-    if user_db.group_id == 1:
-        raise HTTPException(status_code=403, detail="You don`t have permission to this action")
-    stmt = select(Genre).filter_by(id=genre_id)
-    result = await db.execute(stmt)
-    genre_db = result.unique().scalar_one_or_none()
-    if not genre_db:
-        raise HTTPException(status_code=404, detail=f"Genre with id: {genre_id} not exist in db")
+    await validate_is_staff_user(header, db)
+    genre_db = await get_model_db_by_id(Genre, genre_id, db)
     await db.delete(genre_db)
     await db.commit()
 
@@ -366,10 +350,7 @@ async def add_to_remove_from_favourite(
 ):
     access_token = validate_access_token(header)
     user_id = access_token["user_id"]
-
-    movie_db = await get_movie_by_id(add_to_favourite_schema.movie_id, db)
-    if not movie_db:
-        raise HTTPException(status_code=404, detail=f"Movie with id: {add_to_favourite_schema.movie_id} not found")
+    movie_db = await get_model_db_by_id(Movie, add_to_favourite_schema.movie_id, db)
     user_db = await get_user_by_id(user_id, db)
 
     try:
@@ -394,10 +375,7 @@ async def rate_movie(
 ):
     access_token = validate_access_token(header)
     user_id = access_token["user_id"]
-
-    movie_db = await get_movie_by_id(movie_id, db)
-    if not movie_db:
-        raise HTTPException(status_code=404, detail=f"Movie with id: {movie_id} not found")
+    await get_model_db_by_id(Movie, movie_id, db)
     rate = Rate(
         rate=rate_schema.rate,
         user_id=user_id,
@@ -414,9 +392,7 @@ async def like_movie(
 ):
     access_token = validate_access_token(header)
     user_id = access_token["user_id"]
-    movie = await get_movie_by_id(movie_id, db)
-    if not movie:
-        raise HTTPException(status_code=404, detail=f"Movie with id: {movie_id} not found")
+    await get_model_db_by_id(Movie, movie_id, db)
     dislike_obj = await get_like_dislike_movie_by_user_id(DislikeMovie, movie_id, user_id, db)
     like_obj = await get_like_dislike_movie_by_user_id(LikeMovie, movie_id, user_id, db)
     if like_obj:
@@ -451,10 +427,7 @@ async def dislike_movie(
 ):
     access_token = validate_access_token(header)
     user_id = access_token["user_id"]
-    movie = await get_movie_by_id(movie_id, db)
-    if not movie:
-        raise HTTPException(status_code=404, detail=f"Movie with id: {movie_id} not found")
-
+    await get_model_db_by_id(Movie, movie_id, db)
     dislike_obj = await get_like_dislike_movie_by_user_id(DislikeMovie, movie_id, user_id, db)
     like_obj = await get_like_dislike_movie_by_user_id(LikeMovie, movie_id, user_id, db)
 
@@ -502,9 +475,7 @@ async def create_movie_comment(
 ):
     access_token = validate_access_token(header)
     user_id = access_token["user_id"]
-    movie = await get_movie_by_id(movie_id, db)
-    if not movie:
-        raise HTTPException(status_code=404, detail=f"Movie with id: {movie_id} not found")
+    await get_model_db_by_id(Movie, movie_id, db)
     try:
         comment_db = Comment(
             text=movie_schema.text,
@@ -529,12 +500,7 @@ async def reply_movie_comment(
     access_token = validate_access_token(header)
     user_id = access_token["user_id"]
     user_db = await get_user_by_id(user_id, db)
-    stmt = select(Comment).filter_by(id=comment_reply_schema.comment_id)
-    result = await db.execute(stmt)
-    comment_db = result.unique().scalar_one_or_none()
-    if not comment_db:
-        raise HTTPException(status_code=404, detail=f"Comment with id: {comment_reply_schema.comment_id} not found")
-
+    comment_db = await get_model_db_by_id(Comment, comment_reply_schema.comment_id, db)
     try:
         reply_comment = Comment(
             text=comment_reply_schema.reply_text,
@@ -567,9 +533,7 @@ async def like_movie_comment(
     access_token = validate_access_token(header)
     user_id = access_token["user_id"]
     user_db = await get_user_by_id(user_id, db)
-    comment_db = await get_comment_by_id(comment_id, db)
-    if not comment_db:
-        raise HTTPException(status_code=404, detail=f"Comment with id: {comment_id} not found")
+    await get_model_db_by_id(Comment, comment_id, db)
     dislike_obj = await get_like_dislike_comment_by_id(DislikeComment, comment_id, user_id, db)
     like_obj = await get_like_dislike_comment_by_id(LikeComment, comment_id, user_id, db)
     if like_obj:
@@ -613,9 +577,7 @@ async def dislike_movie_comment(
     access_token = validate_access_token(header)
     user_id = access_token["user_id"]
     user_db = await get_user_by_id(user_id, db)
-    comment_db = await get_comment_by_id(comment_id, db)
-    if not comment_db:
-        raise HTTPException(status_code=404, detail=f"Comment with id: {comment_id} not found")
+    comment_db = await get_model_db_by_id(Comment, comment_id, db)
     dislike_obj = await get_like_dislike_comment_by_id(DislikeComment, comment_id, user_id, db)
     like_obj = await get_like_dislike_comment_by_id(LikeComment, comment_id, user_id, db)
     if dislike_obj:
@@ -673,12 +635,7 @@ async def create_star(
         header: str = Depends(authorization_header),
         db: AsyncSession = Depends(get_async_db),
 ):
-    access_token = validate_access_token(header)
-    user_id = access_token["user_id"]
-    user_db = await get_user_by_id(user_id, db)
-    if user_db.group_id == 1:
-        raise HTTPException(status_code=403, detail="You don`t have permission to this action")
-
+    await validate_is_staff_user(header, db)
     star_db = Star(
         name=star_schema.name
     )
@@ -694,17 +651,8 @@ async def update_star(
         header: str = Depends(authorization_header),
         db: AsyncSession = Depends(get_async_db),
 ):
-    access_token = validate_access_token(header)
-    user_id = access_token["user_id"]
-    user_db = await get_user_by_id(user_id, db)
-    if user_db.group_id == 1:
-        raise HTTPException(status_code=403, detail="You don`t have permission to this action")
-
-    stmt = select(Star).filter_by(id=star_id)
-    result = await db.execute(stmt)
-    star_db = result.unique().scalar_one_or_none()
-    if not star_db:
-        raise HTTPException(status_code=404, detail=f"Genre with id: {star_id} not exist")
+    await validate_is_staff_user(header, db)
+    star_db = await get_model_db_by_id(Star, star_id, db)
     star_db.name = star_schema.name
     db.add(star_db)
     await db.commit()
@@ -717,17 +665,8 @@ async def delete_star(
         header: str = Depends(authorization_header),
         db: AsyncSession = Depends(get_async_db),
 ):
-    access_token = validate_access_token(header)
-    user_id = access_token["user_id"]
-    user_db = await get_user_by_id(user_id, db)
-    if user_db.group_id == 1:
-        raise HTTPException(status_code=403, detail="You don`t have permission to this action")
-
-    stmt = select(Star).filter_by(id=star_id)
-    result = await db.execute(stmt)
-    star_db = result.unique().scalar_one_or_none()
-    if not star_db:
-        raise HTTPException(status_code=404, detail=f"Genre with id: {star_id} not exist")
+    await validate_is_staff_user(header, db)
+    star_db = await get_model_db_by_id(Star, star_id, db)
     await db.delete(star_db)
     await db.commit()
     return star_db

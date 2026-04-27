@@ -2,9 +2,6 @@ import decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from database.models.movies import LikeMovie
-
-
 class MovieFieldListSchema(BaseModel):
     name: str
 

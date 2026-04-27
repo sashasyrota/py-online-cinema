@@ -17,7 +17,7 @@ def validate_password(password: str):
     if set(symbols).isdisjoint(password):
         raise HTTPException(
             status_code=400,
-            detail=f"Password should consist one of these symbols {"/.!&?,"}"
+            detail="Password should consist one of these symbols {'/.!&?,'}"
         )
 
     int_pattern = r"[0-9]"
@@ -25,7 +25,7 @@ def validate_password(password: str):
     if not letters:
         raise HTTPException(
             status_code=400,
-            detail=f"Password should consist at least one digit"
+            detail="Password should consist at least one digit"
         )
 
     upper_pattern = r"[A-Z]"
@@ -33,7 +33,7 @@ def validate_password(password: str):
     if not letters:
         raise HTTPException(
             status_code=400,
-            detail=f"Password should consist at least one upper-case letter"
+            detail="Password should consist at least one upper-case letter"
         )
 
     lower_pattern = r"[a-z]"
@@ -41,7 +41,7 @@ def validate_password(password: str):
     if not letters:
         raise HTTPException(
             status_code=400,
-            detail=f"Password should consist at least one lower-case letter"
+            detail="Password should consist at least one lower-case letter"
         )
 
 

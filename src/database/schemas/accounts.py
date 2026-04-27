@@ -3,7 +3,7 @@ import datetime
 from pydantic import BaseModel, EmailStr, field_validator, model_validator
 
 from config.validators.accounts import validate_password
-from database.models.accounts import GenderEnum
+from src.database.models.accounts import GenderEnum
 
 
 class AccountCreationRequestSchema(BaseModel):

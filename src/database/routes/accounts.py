@@ -4,7 +4,7 @@ from datetime import timezone
 from fastapi import APIRouter, HTTPException, Form, UploadFile, File, Security
 from fastapi.params import Depends
 from fastapi.security import APIKeyHeader
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.s3.s3_controller import put_image_to_minio
@@ -13,17 +13,19 @@ from config.security.password import verify_password
 from config.settings import ACTIVATION_TOKEN_EXPIRE_MINUTES, RESET_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_MINUTES, \
     ACCESS_TOKEN_EXPIRE_MINUTES
 from config.security.jwt_token import validate_access_token
-from database.models.accounts import User, ActivationToken, PasswordResetToken, RefreshToken, UserProfile, GenderEnum
+from database.session import AsyncSqliteSessionLocal
+from src.database.models.accounts import User, ActivationToken, PasswordResetToken, RefreshToken, UserProfile, GenderEnum
 from database.schemas.accounts import AccountResendActivationLinkRequestSchema, AccountResetPasswordRequestSchema, \
     AccountResetPasswordCompleteSchema, AccountLoginSchema, RefreshTokenSchema, AccountLogoutSchema, AccountChangeSchema
 from database.schemas.accounts import ProfileCreateRequestSchema
 from src.database.schemas.accounts import AccountCreationRequestSchema, AccountActivationRequestSchema
-from src.database.session import get_async_db
+from src.database import get_async_db
 from tasks import expired_tokens
 
 accounts = APIRouter(
     prefix="/accounts"
 )
+
 
 async def get_user_by_email(email: str, db: AsyncSession):
     stmt = select(User).filter_by(email=email)
@@ -39,6 +41,15 @@ async def get_user_by_id(user_id: int, db: AsyncSession):
     return db_user
 
 
+async def validate_is_staff_user(header: str, db: AsyncSession):
+    access_token = validate_access_token(header)
+    user_id = access_token["user_id"]
+    user_db = await get_user_by_id(user_id, db)
+    if user_db.group_id == 1:
+        raise HTTPException(status_code=403, detail="You don`t have permission to this action")
+    return user_db
+
+
 @accounts.post(
     "/register/",
     status_code=201
@@ -47,6 +58,9 @@ async def create_account(
         account_schema: AccountCreationRequestSchema,
         db: AsyncSession = Depends(get_async_db)
 ):
+    stmt_user = select(User)
+    result = await db.execute(stmt_user)
+
     stmt = select(User).where(User.email == account_schema.email)
     result_dublicate_user = await db.execute(stmt)
     if result_dublicate_user.scalar_one_or_none():
@@ -142,6 +156,8 @@ async def reset_request_password(
 ):
     db_user = await get_user_by_email(str(account_schema.email), db=db)
     if db_user:
+        if not db_user.is_active:
+            raise HTTPException(status_code=403, detail="User account is not active")
         reset_token_db = db_user.password_reset_token
         try:
             if reset_token_db:
@@ -174,7 +190,7 @@ async def reset_complete_password(
     decode_token(account_schema.reset_token)
     stmt = select(PasswordResetToken).filter_by(token=account_schema.reset_token)
     result = await db.execute(stmt)
-    db_reset_token = result.scalar_one_or_none()
+    db_reset_token = result.unique().scalar_one_or_none()
     if db_reset_token:
         db_user = db_reset_token.user
         try:
@@ -196,6 +212,8 @@ async def login_account(
     db_user = await get_user_by_email(str(account_schema.email), db)
     if db_user:
         if verify_password(account_schema.password, str(db_user.hashed_password)):
+            if not db_user.is_active:
+                raise HTTPException(status_code=403, detail="User account is not active")
             try:
                 refresh_token = create_token(
                     data={
@@ -260,7 +278,7 @@ async def logout_account(
     access_token = validate_access_token(header)
     stmt = select(RefreshToken).filter_by(token=account_schema.refresh_token)
     result = await db.execute(stmt)
-    refresh_token_db = result.scalar_one_or_none()
+    refresh_token_db = result.unique().scalar_one_or_none()
     if refresh_token_db:
         if refresh_token_db.user_id == access_token["user_id"]:
             await db.delete(refresh_token_db)

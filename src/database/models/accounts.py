@@ -5,7 +5,6 @@ from typing import List, TYPE_CHECKING, Optional
 from sqlalchemy import String, func, DateTime, Integer, ForeignKey, Text, Date
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 
-from src.database.models.payments import Payment
 from src.config.security.password import hash_password, verify_password
 from src.database.models.base import Base
 
@@ -15,13 +14,12 @@ if TYPE_CHECKING:
         DislikeMovie,
         Comment,
         Movie,
-        movies_users_who_add_to_favourite,
         Rate,
         ReplyComment,
         LikeComment,
         DislikeComment
     )
-
+    from src.database.models.payments import Payment
 
 
 class GenderEnum(str, enum.Enum):
@@ -38,17 +36,14 @@ class UserGroupEnum(str, enum.Enum):
 
 class UserGroup(Base):
     __tablename__ = "user_groups"
-    __table_args__ = {'extend_existing': True}
-
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[UserGroupEnum]
     users: Mapped[List["User"]] = relationship(back_populates="group")
 
 
-class User(Base):
+class   User(Base):
     __tablename__ = "users"
-    __table_args__ = {'extend_existing': True}
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
@@ -61,14 +56,13 @@ class User(Base):
     user_profile: Mapped["UserProfile"] = relationship(uselist=False, back_populates="user", lazy="joined")
     activation_tokens: Mapped[List["ActivationToken"]] = relationship(back_populates="user", cascade="all, delete")
     password_reset_token: Mapped["PasswordResetToken"] = relationship(back_populates="user", lazy="joined")
-    refresh_tokens: Mapped[List["RefreshToken"]] = relationship(back_populates="user")
+    refresh_tokens: Mapped[List["RefreshToken"]] = relationship(back_populates="user", lazy="joined")
     likes_movies: Mapped[List["LikeMovie"]] = relationship(back_populates="user", lazy="joined")
     dislikes_movies: Mapped[List["DislikeMovie"]] = relationship(back_populates="user", lazy="joined")
     comments: Mapped[List["Comment"]] = relationship(back_populates="user", lazy="joined")
     payments: Mapped[List["Payment"]] = relationship(back_populates="user", lazy="joined")
     favourite_movies: Mapped[List["Movie"]] = relationship(back_populates="who_add_to_favourite", secondary="movies_users_who_add_to_favourite", lazy="joined")
     rates: Mapped[List["Rate"]] = relationship(back_populates="user", lazy="joined")
-    # replies: Mapped[List["ReplyComment"]] = relationship(back_populates="user")
     likes_comments: Mapped[List["LikeComment"]] = relationship(back_populates="user", lazy="joined")
     dislikes_comments: Mapped[List["DislikeComment"]] = relationship(back_populates="user", lazy="joined")
 
@@ -97,29 +91,24 @@ class Token:
 
 class ActivationToken(Token, Base):
     __tablename__ = "activation_tokens"
-    __table_args__ = {'extend_existing': True}
 
     user: Mapped["User"] = relationship(back_populates="activation_tokens", lazy="joined")
 
 
 class PasswordResetToken(Token, Base):
     __tablename__ = "password_reset_tokens"
-    __table_args__ = {'extend_existing': True}
 
     user: Mapped["User"] = relationship(back_populates="password_reset_token", lazy="joined")
 
 
 class RefreshToken(Token, Base):
     __tablename__ = "refresh_tokens"
-    __table_args__ = {'extend_existing': True}
 
-    user: Mapped["User"] = relationship(back_populates="refresh_tokens")
+    user: Mapped["User"] = relationship(back_populates="refresh_tokens", lazy="joined")
 
 
 class UserProfile(Base):
     __tablename__ = "profiles"
-    __table_args__ = {'extend_existing': True}
-
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     first_name: Mapped[Optional[str]] = mapped_column(String(64))

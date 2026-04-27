@@ -21,13 +21,6 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-from src.database.models.accounts import (
-    UserGroup,
-    User,
-    ActivationToken,
-    PasswordResetToken,
-    RefreshToken
-)
 from src.database.models.accounts import *
 from src.database.models.movies import *
 from src.database.models.shopping_carts import *

@@ -11,6 +11,7 @@ from src.database.models.base import Base
 if TYPE_CHECKING:
     from src.database.models.accounts import User
     from src.database.models.orders import OrderItem
+    from src.database.models.shopping_carts import CartItem
 
 
 movies_users_who_add_to_favourite= Table(
@@ -158,6 +159,7 @@ class Movie(Base):
     order_items: Mapped[List["OrderItem"]] = relationship(back_populates="movie", lazy="joined")
     who_add_to_favourite: Mapped[List["User"]] = relationship(back_populates="favourite_movies", secondary=movies_users_who_add_to_favourite, lazy="joined")
     rates: Mapped[List[Rate]] = relationship(back_populates="movie", lazy="joined")
+    cart_items: Mapped[List["CartItem"]] = relationship(back_populates="movie", lazy="joined")
 
 
     __table_args__ = (UniqueConstraint('name', 'year', 'time', name='name_year_time_uc'),)
