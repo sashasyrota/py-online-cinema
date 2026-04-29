@@ -3,6 +3,8 @@ import decimal
 from pydantic import BaseModel, ConfigDict, Field
 
 class MovieFieldListSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     name: str
 
 
@@ -20,6 +22,8 @@ class MovieBaseSchema(BaseModel):
 
 
 class LikeDislikeSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     user_id: int
 
 
@@ -90,6 +94,8 @@ class RateRequestSchema(BaseModel):
 
 
 class GenreStarResponseSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     name: str
     movies_count: int
 

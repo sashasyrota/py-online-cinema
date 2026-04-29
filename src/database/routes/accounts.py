@@ -256,7 +256,7 @@ async def refresh_token(
     decode_token(refresh_token)
     stmt = select(RefreshToken).filter_by(token=refresh_token)
     result = await db.execute(stmt)
-    refresh_token_db = result.scalar_one_or_none()
+    refresh_token_db = result.unique().scalar_one_or_none()
     if refresh_token_db:
         access_token = create_token(
             data={
@@ -295,7 +295,7 @@ async def create_profile(
         date_of_birth: datetime.date = Form(None),
         info: str = Form(),
         avatar: UploadFile = File(),
-        header: str = Security(authorization_header),
+        header: str = Depends(authorization_header),
         db: AsyncSession = Depends(get_async_db)
 ):
     access_token = validate_access_token(header)

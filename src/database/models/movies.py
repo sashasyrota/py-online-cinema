@@ -90,8 +90,8 @@ class LikeMovie(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     movie_id: Mapped[int] = mapped_column(ForeignKey("movies.id"), nullable=False)
-    user: Mapped["User"] = relationship(back_populates="likes_movies")
-    movie: Mapped["Movie"] = relationship(back_populates="likes_movies")
+    user: Mapped["User"] = relationship(back_populates="likes_movies", lazy="joined")
+    movie: Mapped["Movie"] = relationship(back_populates="likes_movies", lazy="joined")
 
     __table_args__ = (UniqueConstraint('user_id', 'movie_id', name='user_movie_like_uc'),)
 
@@ -102,8 +102,8 @@ class DislikeMovie(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     movie_id: Mapped[int] = mapped_column(ForeignKey("movies.id"), nullable=False)
-    user: Mapped["User"] = relationship(back_populates="dislikes_movies")
-    movie: Mapped["Movie"] = relationship(back_populates="dislikes_movies")
+    user: Mapped["User"] = relationship(back_populates="dislikes_movies", lazy="joined")
+    movie: Mapped["Movie"] = relationship(back_populates="dislikes_movies", lazy="joined")
 
     __table_args__ = (UniqueConstraint('user_id', 'movie_id', name='user_movie_dislike_uc'),)
 
@@ -115,8 +115,8 @@ class Rate(Base):
     rate: Mapped[int] = mapped_column(nullable=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     movie_id: Mapped[int] = mapped_column(ForeignKey("movies.id"), nullable=False)
-    user: Mapped["User"] = relationship(back_populates="rates")
-    movie: Mapped["Movie"] = relationship(back_populates="rates")
+    user: Mapped["User"] = relationship(back_populates="rates", lazy="joined")
+    movie: Mapped["Movie"] = relationship(back_populates="rates", lazy="joined")
 
     __table_args__ = (UniqueConstraint('user_id', 'movie_id', name='user_movie_rate_uc'),)
 
@@ -128,11 +128,11 @@ class Comment(Base):
     text: Mapped[str] = mapped_column(String(1000), nullable=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     movie_id: Mapped[int] = mapped_column(ForeignKey("movies.id"), nullable=False)
-    user: Mapped["User"] = relationship(back_populates="comments")
-    movie: Mapped["Movie"] = relationship(back_populates="comments")
+    user: Mapped["User"] = relationship(back_populates="comments", lazy="joined")
+    movie: Mapped["Movie"] = relationship(back_populates="comments", lazy="joined")
     reply_comment_id: Mapped[int] = mapped_column(ForeignKey("comments.id"), nullable=True)
-    likes_comments: Mapped[List["LikeComment"]] = relationship(back_populates="comment", lazy="joined")
-    dislikes_comments: Mapped[List["DislikeComment"]] = relationship(back_populates="comment", lazy="joined")
+    likes_comments: Mapped[List["LikeComment"]] = relationship(back_populates="comment", lazy="selectin")
+    dislikes_comments: Mapped[List["DislikeComment"]] = relationship(back_populates="comment", lazy="selectin")
 
 class Movie(Base):
     __tablename__ = "movies"
@@ -150,16 +150,16 @@ class Movie(Base):
     price: Mapped[decimal] = mapped_column(DECIMAL(10,2), nullable=False)
     certification_id: Mapped[int] = mapped_column(ForeignKey("certifications.id"), nullable=False)
     certification: Mapped[Certification] = relationship(back_populates="movies", lazy="joined")
-    genres: Mapped[List[Genre]] = relationship(back_populates="movies", secondary=movie_genres, lazy="joined")
-    directors: Mapped[List[Director]] = relationship(back_populates="movies", secondary=movie_directors, lazy="joined")
-    stars: Mapped[List[Star]] = relationship(back_populates="movies", secondary=movie_stars, lazy="joined")
-    likes_movies: Mapped[List[LikeMovie]] = relationship(back_populates="movie", lazy="joined")
-    dislikes_movies: Mapped[List[DislikeMovie]] = relationship(back_populates="movie", lazy="joined")
-    comments: Mapped[List[Comment]] = relationship(back_populates="movie", lazy="joined")
-    order_items: Mapped[List["OrderItem"]] = relationship(back_populates="movie", lazy="joined")
-    who_add_to_favourite: Mapped[List["User"]] = relationship(back_populates="favourite_movies", secondary=movies_users_who_add_to_favourite, lazy="joined")
-    rates: Mapped[List[Rate]] = relationship(back_populates="movie", lazy="joined")
-    cart_items: Mapped[List["CartItem"]] = relationship(back_populates="movie", lazy="joined")
+    genres: Mapped[List[Genre]] = relationship(back_populates="movies", secondary=movie_genres, lazy="selectin")
+    directors: Mapped[List[Director]] = relationship(back_populates="movies", secondary=movie_directors, lazy="selectin")
+    stars: Mapped[List[Star]] = relationship(back_populates="movies", secondary=movie_stars, lazy="selectin")
+    likes_movies: Mapped[List[LikeMovie]] = relationship(back_populates="movie", lazy="selectin")
+    dislikes_movies: Mapped[List[DislikeMovie]] = relationship(back_populates="movie", lazy="selectin")
+    comments: Mapped[List[Comment]] = relationship(back_populates="movie", lazy="selectin")
+    order_items: Mapped[List["OrderItem"]] = relationship(back_populates="movie", lazy="selectin")
+    who_add_to_favourite: Mapped[List["User"]] = relationship(back_populates="favourite_movies", secondary=movies_users_who_add_to_favourite, lazy="selectin")
+    rates: Mapped[List[Rate]] = relationship(back_populates="movie", lazy="selectin")
+    cart_items: Mapped[List["CartItem"]] = relationship(back_populates="movie", lazy="selectin")
 
 
     __table_args__ = (UniqueConstraint('name', 'year', 'time', name='name_year_time_uc'),)

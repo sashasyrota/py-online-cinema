@@ -115,7 +115,7 @@ def get_stmt_with_query_params(movies_params: dict):
         elif movies_params["sort_by"] == "year":
             stmt = stmt.order_by(Movie.year)
         elif movies_params["sort_by"] == "imdb":
-            stmt = stmt.order_by(Movie.imdb)
+            stmt = stmt.order_by(Movie.imdb.desc())
 
     if movies_params["min_rating"]:
         stmt = stmt.filter(Movie.imdb >= movies_params["min_rating"])
@@ -154,6 +154,8 @@ async def get_movie_detail(
         db: AsyncSession = Depends(get_async_db)
 ):
     movie_db = await get_movie_by_id(movie_id, db)
+    if not movie_db:
+        raise HTTPException(status_code=404, detail=f"Movie with id: {movie_id} not found.")
     return movie_db
 
 
@@ -610,7 +612,7 @@ async def dislike_movie_comment(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@movies.get("/movies/stars/")
+@movies.get("/stars/", response_model=list[GenreStarResponseSchema])
 async def star_list(
         db: AsyncSession = Depends(get_async_db),
 ):
@@ -620,7 +622,7 @@ async def star_list(
     return db_stars
 
 
-@movies.get("/movies/stars/{star_id:int}", response_model=GenreStarDetailResponseSchema)
+@movies.get("/stars/{star_id:int}", response_model=GenreStarDetailResponseSchema)
 async def star_detail(
         star_id: int,
         db: AsyncSession = Depends(get_async_db),
@@ -629,7 +631,7 @@ async def star_detail(
     return star_db
 
 
-@movies.post("/movies/stars/")
+@movies.post("/stars/")
 async def create_star(
         star_schema: StarCreateSchema,
         header: str = Depends(authorization_header),
@@ -644,7 +646,7 @@ async def create_star(
     return star_db
 
 
-@movies.put("/movies/stars/{star_id:int}/")
+@movies.put("/stars/{star_id:int}/")
 async def update_star(
         star_id: int,
         star_schema: StarUpdateSchema,
@@ -659,7 +661,7 @@ async def update_star(
     return star_db
 
 
-@movies.delete("/movies/stars/{star_id:int}/")
+@movies.delete("/stars/{star_id:int}/")
 async def delete_star(
         star_id: int,
         header: str = Depends(authorization_header),

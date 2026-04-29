@@ -42,7 +42,7 @@ class UserGroup(Base):
     users: Mapped[List["User"]] = relationship(back_populates="group")
 
 
-class   User(Base):
+class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -56,15 +56,15 @@ class   User(Base):
     user_profile: Mapped["UserProfile"] = relationship(uselist=False, back_populates="user", lazy="joined")
     activation_tokens: Mapped[List["ActivationToken"]] = relationship(back_populates="user", cascade="all, delete")
     password_reset_token: Mapped["PasswordResetToken"] = relationship(back_populates="user", lazy="joined")
-    refresh_tokens: Mapped[List["RefreshToken"]] = relationship(back_populates="user", lazy="joined")
-    likes_movies: Mapped[List["LikeMovie"]] = relationship(back_populates="user", lazy="joined")
-    dislikes_movies: Mapped[List["DislikeMovie"]] = relationship(back_populates="user", lazy="joined")
-    comments: Mapped[List["Comment"]] = relationship(back_populates="user", lazy="joined")
-    payments: Mapped[List["Payment"]] = relationship(back_populates="user", lazy="joined")
-    favourite_movies: Mapped[List["Movie"]] = relationship(back_populates="who_add_to_favourite", secondary="movies_users_who_add_to_favourite", lazy="joined")
-    rates: Mapped[List["Rate"]] = relationship(back_populates="user", lazy="joined")
-    likes_comments: Mapped[List["LikeComment"]] = relationship(back_populates="user", lazy="joined")
-    dislikes_comments: Mapped[List["DislikeComment"]] = relationship(back_populates="user", lazy="joined")
+    refresh_tokens: Mapped[List["RefreshToken"]] = relationship(back_populates="user", lazy="selectin")
+    likes_movies: Mapped[List["LikeMovie"]] = relationship(back_populates="user", lazy="selectin")
+    dislikes_movies: Mapped[List["DislikeMovie"]] = relationship(back_populates="user", lazy="selectin")
+    comments: Mapped[List["Comment"]] = relationship(back_populates="user", lazy="selectin")
+    payments: Mapped[List["Payment"]] = relationship(back_populates="user", lazy="selectin")
+    favourite_movies: Mapped[List["Movie"]] = relationship(back_populates="who_add_to_favourite", secondary="movies_users_who_add_to_favourite", lazy="selectin")
+    rates: Mapped[List["Rate"]] = relationship(back_populates="user", lazy="selectin")
+    likes_comments: Mapped[List["LikeComment"]] = relationship(back_populates="user", lazy="selectin")
+    dislikes_comments: Mapped[List["DislikeComment"]] = relationship(back_populates="user", lazy="selectin")
 
 
     @property

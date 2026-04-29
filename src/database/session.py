@@ -9,6 +9,7 @@ from sqlalchemy.orm import sessionmaker, Session
 from src.database.models.base import Base
 from src.database.models import Payment
 from src.config import settings
+from pytest_green_light.fixtures import async_engine_factory
 
 
 BASE_DIR: Path = Path(__file__).parent.parent
@@ -50,7 +51,7 @@ def get_sync_db() -> Session:
 #SQLITE
 SQLITE_DATABASE_URL = f"sqlite+aiosqlite:///{os.path.join(BASE_DIR, 'cinema.db')}"
 
-sqlite_async_engine = create_async_engine(SQLITE_DATABASE_URL, echo=False)
+sqlite_async_engine = create_async_engine(SQLITE_DATABASE_URL, echo=True)
 
 AsyncSqliteSessionLocal = async_sessionmaker(
     bind=sqlite_async_engine,
