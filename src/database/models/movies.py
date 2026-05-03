@@ -2,7 +2,8 @@ import decimal
 import uuid
 from typing import Optional, List, TYPE_CHECKING
 
-from sqlalchemy import Text, DECIMAL, ForeignKey, Table, Column, types, UniqueConstraint, UUID, Uuid, String, Integer
+from sqlalchemy import Text, DECIMAL, ForeignKey, Table, Column, types, UniqueConstraint, UUID, Uuid, String, Integer, \
+    Float, CheckConstraint
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -49,7 +50,7 @@ class Genre(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(unique=True, nullable=False)
-    movies: Mapped[List["Movie"]] = relationship(secondary=movie_genres, lazy="joined")
+    movies: Mapped[List["Movie"]] = relationship(secondary=movie_genres, lazy="selectin")
 
     @property
     def movies_count(self):
@@ -90,8 +91,8 @@ class LikeMovie(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     movie_id: Mapped[int] = mapped_column(ForeignKey("movies.id"), nullable=False)
-    user: Mapped["User"] = relationship(back_populates="likes_movies", lazy="joined")
-    movie: Mapped["Movie"] = relationship(back_populates="likes_movies", lazy="joined")
+    user: Mapped["User"] = relationship(back_populates="likes_movies")
+    movie: Mapped["Movie"] = relationship(back_populates="likes_movies")
 
     __table_args__ = (UniqueConstraint('user_id', 'movie_id', name='user_movie_like_uc'),)
 
@@ -102,8 +103,8 @@ class DislikeMovie(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     movie_id: Mapped[int] = mapped_column(ForeignKey("movies.id"), nullable=False)
-    user: Mapped["User"] = relationship(back_populates="dislikes_movies", lazy="joined")
-    movie: Mapped["Movie"] = relationship(back_populates="dislikes_movies", lazy="joined")
+    user: Mapped["User"] = relationship(back_populates="dislikes_movies")
+    movie: Mapped["Movie"] = relationship(back_populates="dislikes_movies")
 
     __table_args__ = (UniqueConstraint('user_id', 'movie_id', name='user_movie_dislike_uc'),)
 
@@ -115,8 +116,8 @@ class Rate(Base):
     rate: Mapped[int] = mapped_column(nullable=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     movie_id: Mapped[int] = mapped_column(ForeignKey("movies.id"), nullable=False)
-    user: Mapped["User"] = relationship(back_populates="rates", lazy="joined")
-    movie: Mapped["Movie"] = relationship(back_populates="rates", lazy="joined")
+    user: Mapped["User"] = relationship(back_populates="rates")
+    movie: Mapped["Movie"] = relationship(back_populates="rates")
 
     __table_args__ = (UniqueConstraint('user_id', 'movie_id', name='user_movie_rate_uc'),)
 
@@ -128,11 +129,12 @@ class Comment(Base):
     text: Mapped[str] = mapped_column(String(1000), nullable=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     movie_id: Mapped[int] = mapped_column(ForeignKey("movies.id"), nullable=False)
-    user: Mapped["User"] = relationship(back_populates="comments", lazy="joined")
-    movie: Mapped["Movie"] = relationship(back_populates="comments", lazy="joined")
+    user: Mapped["User"] = relationship(back_populates="comments")
+    movie: Mapped["Movie"] = relationship(back_populates="comments")
     reply_comment_id: Mapped[int] = mapped_column(ForeignKey("comments.id"), nullable=True)
     likes_comments: Mapped[List["LikeComment"]] = relationship(back_populates="comment", lazy="selectin")
     dislikes_comments: Mapped[List["DislikeComment"]] = relationship(back_populates="comment", lazy="selectin")
+
 
 class Movie(Base):
     __tablename__ = "movies"
@@ -142,8 +144,8 @@ class Movie(Base):
     name: Mapped[str] = mapped_column(nullable=False)
     year: Mapped[int] = mapped_column(nullable=False)
     time: Mapped[int] = mapped_column(nullable=False)
-    imdb: Mapped[float] = mapped_column(nullable=False)
-    votes: Mapped[int] = mapped_column(nullable=False)
+    imdb: Mapped[float] = mapped_column(nullable=False, server_default="0")
+    votes: Mapped[int] = mapped_column(nullable=False, server_default="0")
     meta_score: Mapped[Optional[float]] = mapped_column(nullable=True)
     gross: Mapped[Optional[float]] = mapped_column(nullable=True)
     description: Mapped[str] = mapped_column(Text, nullable=False)
@@ -161,8 +163,11 @@ class Movie(Base):
     rates: Mapped[List[Rate]] = relationship(back_populates="movie", lazy="selectin")
     cart_items: Mapped[List["CartItem"]] = relationship(back_populates="movie", lazy="selectin")
 
-
-    __table_args__ = (UniqueConstraint('name', 'year', 'time', name='name_year_time_uc'),)
+    __table_args__ = (
+        CheckConstraint('meta_score >= 0', name='meta_score_ge_0'),
+        CheckConstraint('meta_score <= 100', name='meta_score_le_100'),
+        UniqueConstraint('name', 'year', 'time', name='name_year_time_uc'),
+    )
 
     @property
     def likes_count(self):

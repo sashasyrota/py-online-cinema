@@ -1,4 +1,5 @@
 import asyncio
+import math
 import os
 from decimal import Decimal
 from typing import Type, Annotated
@@ -23,7 +24,8 @@ from src.database.routes.accounts import get_user_by_id, validate_is_staff_user
 from database.schemas.movies import MovieListResponseSchema, MovieDetailResponseSchema, MovieCommentCreationSchema, \
     MovieFavouriteRequestSchema, RateRequestSchema, GenreStarResponseSchema, CommentReplySchema, \
     MovieCommentListResponseSchema, MovieCreateRequestSchema, MovieUpdateRequestSchema, GenreStarDetailResponseSchema, \
-    GenreCreateSchema, GenreUpdateSchema, GenreStarResponseSchema, StarCreateSchema, StarUpdateSchema
+    GenreCreateSchema, GenreUpdateSchema, GenreStarResponseSchema, StarCreateSchema, StarUpdateSchema, \
+    CommentResponseSchema, ReplyCommentResponseSchema
 from src.database import get_async_db
 
 
@@ -33,6 +35,27 @@ movies = APIRouter(
     prefix="/theater"
 )
 
+async def validate_movie_duplicate(movie_params, db):
+    stmt = select(Movie).filter(
+        Movie.name == movie_params.name,
+        Movie.year == movie_params.year,
+        Movie.time == movie_params.time
+    )
+    result = await db.execute(stmt)
+    if result.unique().scalars().all():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Movie with name: {movie_params.name}, year: {movie_params.year}, time: {movie_params.time} already exist in db."
+        )
+
+async def validate_genre_star_duplicate(model, name, db):
+    stmt = select(model).filter_by(name=name)
+    result = await db.execute(stmt)
+    if result.unique().scalars().all():
+        raise HTTPException(
+            status_code=400,
+            detail=f"{model.__name__} with name: {name} already exist in db."
+        )
 
 async def get_movie_by_id(movie_id: int, db: AsyncSession):
     stmt = select(Movie).filter_by(id=movie_id)
@@ -159,14 +182,14 @@ async def get_movie_detail(
     return movie_db
 
 
-@movies.post("/movies/")
+@movies.post("/movies/", status_code=201, response_model=MovieDetailResponseSchema)
 async def create_movie(
         movie_params: MovieCreateRequestSchema,
         header: str = Depends(authorization_header),
         db: AsyncSession = Depends(get_async_db)
 ):
     await validate_is_staff_user(header, db)
-
+    await validate_movie_duplicate(movie_params, db)
     certification_db = await get_model_db_by_id(Certification, movie_params.certification, db)
     genres_db = await get_model_list_by_ids(Genre, movie_params.genres, db)
     directors_db = await get_model_list_by_ids(Director, movie_params.directors, db)
@@ -176,49 +199,46 @@ async def create_movie(
         name=movie_params.name,
         year=movie_params.year,
         time=movie_params.time,
-        imdb=movie_params.imdb,
         gross=movie_params.gross,
         price=movie_params.price,
         genres=genres_db,
         directors=directors_db,
         stars=stars_db,
         certification=certification_db,
-        votes=movie_params.votes,
         description=movie_params.description
     )
     db.add(movie_db)
     await db.commit()
+    await db.refresh(movie_db)
     return movie_db
 
 
 @movies.put("/movies/{movie_id:int}/")
 async def update_movie(
+        movie_id: int,
         movie_params: MovieUpdateRequestSchema,
         header: str = Depends(authorization_header),
         db: AsyncSession = Depends(get_async_db)
 ):
     await validate_is_staff_user(header, db)
+    await validate_movie_duplicate(movie_params, db)
     certification_db = await get_model_db_by_id(Certification, movie_params.certification, db)
     genres_db = await get_model_list_by_ids(Genre, movie_params.genres, db)
     directors_db = await get_model_list_by_ids(Director, movie_params.directors, db)
     stars_db = await get_model_list_by_ids(Star, movie_params.stars, db)
-
-    movie_db = Movie(
-        name=movie_params.name,
-        year=movie_params.year,
-        time=movie_params.time,
-        imdb=movie_params.imdb,
-        gross=movie_params.gross,
-        price=movie_params.price,
-        votes=movie_params.votes,
-        description=movie_params.description,
-        genres=genres_db,
-        directors=directors_db,
-        stars=stars_db,
-        certification=certification_db
-
-    )
-    db.add(movie_db)
+    stmt = select(Movie).filter_by(id=movie_id)
+    result = await db.execute(stmt)
+    movie_db = result.unique().scalar_one_or_none()
+    movie_db.name = movie_params.name
+    movie_db.year = movie_params.year
+    movie_db.time = movie_params.time
+    movie_db.gross = movie_params.gross
+    movie_db.price = movie_params.price
+    movie_db.description = movie_params.description
+    movie_db.genres = genres_db
+    movie_db.directors = directors_db
+    movie_db.stars = stars_db
+    movie_db.certification = certification_db
     await db.commit()
     return movie_db
 
@@ -259,7 +279,7 @@ async def delete_movie(
         raise HTTPException(status_code=500, detail=str(err))
 
 
-@movies.get("/favourite_movies/")
+@movies.get("/favourite_movies/", response_model=list[MovieListResponseSchema])
 async def get_favourite_movies(
         movies_params: MovieParamsDep,
         header: str = Depends(authorization_header),
@@ -294,7 +314,7 @@ async def get_genre_detail(
     return genre_db
 
 
-@movies.get("/movies_in_genre/{genre_id:int}/")
+@movies.get("/movies_in_genre/{genre_id:int}/", response_model=list[MovieListResponseSchema])
 async def get_movies_in_genre(
         genre_id: int,
         db: AsyncSession = Depends(get_async_db)
@@ -305,26 +325,29 @@ async def get_movies_in_genre(
     return movies_db
 
 
-@movies.post("/genres/")
+@movies.post("/genres/", response_model=GenreStarDetailResponseSchema)
 async def create_genre(
         genre_schema: GenreCreateSchema,
         header: str = Depends(authorization_header),
         db: AsyncSession = Depends(get_async_db)
 ):
+    await validate_genre_star_duplicate(Genre, genre_schema.name, db)
     await validate_is_staff_user(header, db)
     genre_db = Genre(name=genre_schema.name)
     db.add(genre_db)
     await db.commit()
+    await db.refresh(genre_db)
     return genre_db
 
 
-@movies.post("/genres/{genre_id:int}/")
+@movies.put("/genres/{genre_id:int}/", response_model=GenreStarDetailResponseSchema)
 async def update_genre(
         genre_id: int,
         genre_schema: GenreUpdateSchema,
         header: str = Depends(authorization_header),
         db: AsyncSession = Depends(get_async_db)
 ):
+    await validate_genre_star_duplicate(Genre, genre_schema.name, db)
     await validate_is_staff_user(header, db)
     genre_db = await get_model_db_by_id(Genre, genre_id, db)
     genre_db.name = genre_schema.name
@@ -344,7 +367,7 @@ async def delete_genre(
     await db.commit()
 
 
-@movies.post("/movies/movie_id:int/add_to_remove_from_favourite/")
+@movies.post("/movies/add_or_remove_from_favourite/")
 async def add_to_remove_from_favourite(
         add_to_favourite_schema: MovieFavouriteRequestSchema,
         header: str = Depends(authorization_header),
@@ -368,7 +391,7 @@ async def add_to_remove_from_favourite(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@movies.post("/movies/movie_id:int/rate_movie/")
+@movies.post("/movies/{movie_id:int}/rate_movie/")
 async def rate_movie(
         movie_id: int,
         rate_schema: RateRequestSchema,
@@ -377,14 +400,32 @@ async def rate_movie(
 ):
     access_token = validate_access_token(header)
     user_id = access_token["user_id"]
-    await get_model_db_by_id(Movie, movie_id, db)
-    rate = Rate(
-        rate=rate_schema.rate,
-        user_id=user_id,
-        movie_id=movie_id
-    )
-    return rate
-
+    movie_db = await get_model_db_by_id(Movie, movie_id, db)
+    try:
+        stmt = select(Rate).filter(Rate.user_id == user_id, Rate.movie_id == movie_id)
+        result = await db.execute(stmt)
+        rate_db = result.unique().scalar_one_or_none()
+        if rate_db:
+            rate_db.rate = rate_schema.rate
+        else:
+            rate_db = Rate(
+                user_id=user_id,
+                movie_id=movie_id,
+                rate=rate_schema.rate
+            )
+            db.add(rate_db)
+            await db.flush()
+            await db.refresh(movie_db)
+        votes = len(movie_db.rates)
+        movie_db.votes = votes
+        sum_rating = 0
+        for rate_db in movie_db.rates:
+            sum_rating += rate_db.rate
+        movie_db.imdb = round(sum_rating / votes, 1)
+        await db.commit()
+        await db.refresh(movie_db)
+    except IntegrityError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 @movies.post("/movies/{movie_id:int}/like/")
 async def like_movie(
@@ -468,7 +509,10 @@ async def movie_comment_list(
     return comments_db
 
 
-@movies.post("/movies/{movie_id:int}/create_comment/")
+@movies.post(
+    "/movies/{movie_id:int}/create_comment/",
+    response_model=CommentResponseSchema
+)
 async def create_movie_comment(
         movie_schema: MovieCommentCreationSchema,
         movie_id: int,
@@ -492,7 +536,10 @@ async def create_movie_comment(
     return comment_db
 
 
-@movies.post("/movies/reply_comment/")
+@movies.post(
+    "/movies/reply_comment/",
+    response_model=ReplyCommentResponseSchema
+)
 async def reply_movie_comment(
         comment_reply_schema: CommentReplySchema,
         background_tasks: BackgroundTasks,
@@ -622,7 +669,7 @@ async def star_list(
     return db_stars
 
 
-@movies.get("/stars/{star_id:int}", response_model=GenreStarDetailResponseSchema)
+@movies.get("/stars/{star_id:int}/", response_model=GenreStarDetailResponseSchema)
 async def star_detail(
         star_id: int,
         db: AsyncSession = Depends(get_async_db),
@@ -631,37 +678,39 @@ async def star_detail(
     return star_db
 
 
-@movies.post("/stars/")
+@movies.post("/stars/", response_model=GenreStarDetailResponseSchema)
 async def create_star(
         star_schema: StarCreateSchema,
         header: str = Depends(authorization_header),
         db: AsyncSession = Depends(get_async_db),
 ):
     await validate_is_staff_user(header, db)
+    await validate_genre_star_duplicate(Star, star_schema.name, db)
     star_db = Star(
         name=star_schema.name
     )
     db.add(star_db)
     await db.commit()
+    await db.refresh(star_db)
     return star_db
 
 
-@movies.put("/stars/{star_id:int}/")
+@movies.put("/stars/{star_id:int}/", response_model=GenreStarDetailResponseSchema)
 async def update_star(
         star_id: int,
         star_schema: StarUpdateSchema,
         header: str = Depends(authorization_header),
         db: AsyncSession = Depends(get_async_db),
 ):
+    await validate_genre_star_duplicate(Star, star_schema.name, db)
     await validate_is_staff_user(header, db)
     star_db = await get_model_db_by_id(Star, star_id, db)
     star_db.name = star_schema.name
-    db.add(star_db)
     await db.commit()
     return star_db
 
 
-@movies.delete("/stars/{star_id:int}/")
+@movies.delete("/stars/{star_id:int}/", status_code=204)
 async def delete_star(
         star_id: int,
         header: str = Depends(authorization_header),

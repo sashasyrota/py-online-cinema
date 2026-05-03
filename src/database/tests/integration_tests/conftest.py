@@ -7,7 +7,7 @@ from PIL import Image
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from database.models import User, Genre, Star, Director, Certification, Movie
+from database.models import User, Genre, Star, Director, Certification, Movie, Comment, Rate
 from database.session import reset_sqlite_database, get_sqlite_async_db, AsyncSqliteSessionLocal, sqlite_async_engine
 from main import app
 
@@ -43,6 +43,41 @@ async def create_user(db):
         await db.commit()
         return db_user
     return _db_user
+
+
+@pytest_asyncio.fixture(scope="function")
+async def get_user_id_and_access_token(client, db, create_user):
+    async def access_token_obj():
+        test_user = await create_user()
+        test_user.is_active = True
+        await db.commit()
+        response = await client.post(f"/api/v1/accounts/login/", json={
+            "email": test_user.email,
+            "password": "Testtest1221!"
+        })
+        return (
+            response.json()["access_token"],
+            test_user.id
+        )
+    return access_token_obj
+
+
+@pytest_asyncio.fixture(scope="function")
+async def get_access_token_and_moderator_id(client, db, create_user):
+    async def access_token_obj():
+        test_user = await create_user()
+        test_user.is_active = True
+        test_user.group_id = 2
+        await db.commit()
+        response = await client.post(f"/api/v1/accounts/login/", json={
+            "email": test_user.email,
+            "password": "Testtest1221!"
+        })
+        return (
+            response.json()["access_token"],
+            test_user.id
+        )
+    return access_token_obj
 
 
 @pytest.fixture
@@ -92,6 +127,21 @@ async def create_director(db):
 
 
 @pytest.fixture
+async def create_comment(db):
+    async def comment_obj( user_id: int, movie_id: int, text: str = "test_text", reply_comment_id: int = None):
+        _db_comment = Comment(
+            text=text,
+            user_id=user_id,
+            movie_id=movie_id,
+            reply_comment_id=reply_comment_id
+        )
+        db.add(_db_comment)
+        await db.commit()
+        return _db_comment
+    return comment_obj
+
+
+@pytest.fixture
 async def create_certification(db):
     async def certification_obj(name: str = "test_certification"):
         _db_certification = Certification(
@@ -110,10 +160,8 @@ async def create_movie(db):
             name: str = "Test_movie_name",
             year: int = 2000,
             time: int = 90,
-            imdb: int = 10,
-            votes: int = 21,
             meta_score: float = 8.8,
-            price: decimal.Decimal = decimal.Decimal("10.3"),
+            price: decimal.Decimal = "10.30",
             genres: list = None,
             directors: list = None,
             stars: list = None
@@ -131,8 +179,6 @@ async def create_movie(db):
             name=name,
             year=year,
             time=time,
-            imdb=imdb,
-            votes=votes,
             meta_score=meta_score,
             description="test_description",
             price=price,
@@ -145,4 +191,17 @@ async def create_movie(db):
         await db.commit()
         return db_movie
     return movie_obj
-    
+
+
+@pytest_asyncio.fixture(scope="function")
+async def create_rate(db):
+    async def rate_obj(movie_id, user_id, rate):
+        _db_rate = Rate(
+            movie_id=movie_id,
+            user_id=user_id,
+            rate=rate
+        )
+        db.add(_db_rate)
+        await db.commit()
+        return _db_rate
+    return rate_obj

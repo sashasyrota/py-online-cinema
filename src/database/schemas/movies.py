@@ -1,6 +1,15 @@
 import decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from fastapi import Depends
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
+from watchfiles import awatch
+
+from database import get_async_db, get_sync_db
+from database.models import Movie
+
 
 class MovieFieldListSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -12,7 +21,6 @@ class MovieBaseSchema(BaseModel):
     name: str
     year: int
     time: int
-    imdb: float
     gross: float | None
     price: decimal.Decimal
     certification: MovieFieldListSchema
@@ -20,17 +28,22 @@ class MovieBaseSchema(BaseModel):
     directors: list[MovieFieldListSchema] | None
     stars: list[MovieFieldListSchema] | None
 
+    @field_serializer("price")
+    def serialize_decimal_to_str(self, price: decimal.Decimal):
+        return str(price)
+
 
 class LikeDislikeSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    user_id: int
+    user_id: int | None
 
 
 class CommentSchema(BaseModel):
     id: int
 
 class MovieIdSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
 
 
@@ -62,7 +75,6 @@ class MovieCreateRequestSchema(MovieBaseSchema):
     meta_score: float | None
     description: str | None
     certification: int
-    votes: int
     genres: list[int] | None
     directors: list[int] | None
     stars: list[int] | None
@@ -77,6 +89,8 @@ class MovieCommentCreationSchema(BaseModel):
 
 
 class MovieCommentListResponseSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     user_id: int
     text: str
     movie_id: int
@@ -101,6 +115,7 @@ class GenreStarResponseSchema(BaseModel):
 
 
 class GenreStarDetailResponseSchema(GenreStarResponseSchema):
+
     movies: list[MovieIdSchema]
 
 
@@ -115,6 +130,19 @@ class GenreUpdateSchema(GenreCreateSchema):
 class CommentReplySchema(BaseModel):
     comment_id: int
     reply_text: str
+
+
+class CommentResponseSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    text: str
+    movie_id: int
+    user_id: int
+
+
+class ReplyCommentResponseSchema(CommentResponseSchema):
+    reply_comment_id: int
 
 
 class StarCreateSchema(BaseModel):

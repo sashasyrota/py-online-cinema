@@ -51,7 +51,7 @@ def get_sync_db() -> Session:
 #SQLITE
 SQLITE_DATABASE_URL = f"sqlite+aiosqlite:///{os.path.join(BASE_DIR, 'cinema.db')}"
 
-sqlite_async_engine = create_async_engine(SQLITE_DATABASE_URL, echo=True)
+sqlite_async_engine = create_async_engine(SQLITE_DATABASE_URL, echo=False)
 
 AsyncSqliteSessionLocal = async_sessionmaker(
     bind=sqlite_async_engine,
@@ -63,6 +63,20 @@ AsyncSqliteSessionLocal = async_sessionmaker(
 
 async def get_sqlite_async_db() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSqliteSessionLocal() as session:
+        yield session
+#SQLITE
+SQLITE_SYNC_DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'cinema.db')}"
+
+sqlite_sync_engine = create_engine(SQLITE_SYNC_DATABASE_URL, echo=False)
+
+SyncSqliteSessionLocal = sessionmaker(
+    bind=sqlite_sync_engine,
+    autocommit=False,
+    autoflush=False
+)
+
+async def get_sqlite_sync_db():
+    async with SyncSessionLocal() as session:
         yield session
 
 

@@ -35,7 +35,7 @@ class OrderItem(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     order_id: Mapped[int] = mapped_column(ForeignKey("orders.id"), nullable=False)
-    order: Mapped[Order] = relationship(back_populates="order_items", lazy="joined")
+    order: Mapped[Order] = relationship(back_populates="order_items")
     movie_id: Mapped[int] = mapped_column(ForeignKey("movies.id"), nullable=False)
-    movie: Mapped["Movie"] = relationship(back_populates="order_items", lazy="joined")
+    movie: Mapped["Movie"] = relationship(back_populates="order_items")
     price_at_order: Mapped[decimal] = mapped_column(DECIMAL(10,2), nullable=False)
