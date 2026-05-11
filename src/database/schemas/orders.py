@@ -19,12 +19,15 @@ class OrderCancelRequestSchema(BaseModel):
 
 
 class OrderItemDetailSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     movie_id: int
     price_at_order: decimal.Decimal
 
 
 class OrderResponseDetailSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+
     id: int
     user_id: int
     created_at: datetime.datetime

@@ -547,9 +547,9 @@ class TestAuthorized:
             create_user,
             db,
             client: AsyncClient,
-            get_user_id_and_access_token
+            get_access_token_and_user_id
     ):
-        access_token, user_id = await get_user_id_and_access_token()
+        access_token, user_id = await get_access_token_and_user_id()
         test_certification = await create_certification()
         test_movie = await create_movie(
             certification_id=test_certification.id
@@ -661,9 +661,9 @@ class TestAuthorized:
             db,
             create_user,
             client: AsyncClient,
-            get_user_id_and_access_token
+            get_access_token_and_user_id
     ):
-        access_token, user_id = await get_user_id_and_access_token()
+        access_token, user_id = await get_access_token_and_user_id()
         test_genre = await create_genre()
         response = await client.put(
             f"{movie_prefix}genres/{test_genre.id}/",
@@ -679,9 +679,9 @@ class TestAuthorized:
             create_user,
             db,
             client: AsyncClient,
-            get_user_id_and_access_token
+            get_access_token_and_user_id
     ):
-        access_token, user_id = await get_user_id_and_access_token()
+        access_token, user_id = await get_access_token_and_user_id()
         response = await client.post(
             f"{movie_prefix}genres/",
             json={"name": "TestGenre1"},
@@ -696,10 +696,10 @@ class TestAuthorized:
             create_genre,
             create_user,
             db,
-            get_user_id_and_access_token,
+            get_access_token_and_user_id,
             client: AsyncClient,
     ):
-        access_token, user_id = await get_user_id_and_access_token()
+        access_token, user_id = await get_access_token_and_user_id()
         print(access_token)
         test_genre = await create_genre()
         response = await client.delete(
@@ -716,11 +716,11 @@ class TestAuthorized:
             create_rate,
             create_user,
             create_certification,
-            get_user_id_and_access_token,
+            get_access_token_and_user_id,
             db,
             client: AsyncClient
     ):
-        access_token, user_id = await get_user_id_and_access_token()
+        access_token, user_id = await get_access_token_and_user_id()
         user1_db = await create_user(email="testtest121@gmail.com")
         certification_db = await create_certification()
         test_movie = await create_movie(certification_id=certification_db.id)
@@ -751,11 +751,11 @@ class TestAuthorized:
             self,
             create_movie,
             create_certification,
-            get_user_id_and_access_token,
+            get_access_token_and_user_id,
             db,
             client: AsyncClient,
     ):
-        access_token, user_id = await get_user_id_and_access_token()
+        access_token, user_id = await get_access_token_and_user_id()
         certification_db = await create_certification()
         test_movie = await create_movie(certification_id=certification_db.id)
         like_response = await client.post(
@@ -798,11 +798,11 @@ class TestAuthorized:
             self,
             create_movie,
             create_certification,
-            get_user_id_and_access_token,
+            get_access_token_and_user_id,
             db,
             client: AsyncClient,
     ):
-        access_token, user_id = await get_user_id_and_access_token()
+        access_token, user_id = await get_access_token_and_user_id()
         certification_db = await create_certification()
         test_movie = await create_movie(certification_id=certification_db.id)
         response = await client.post(
@@ -821,11 +821,11 @@ class TestAuthorized:
             self,
             create_movie,
             create_certification,
-            get_user_id_and_access_token,
+            get_access_token_and_user_id,
             db,
             client: AsyncClient,
     ):
-        access_token, user_id = await get_user_id_and_access_token()
+        access_token, user_id = await get_access_token_and_user_id()
         certification_db = await create_certification()
         test_movie = await create_movie(certification_id=certification_db.id)
         await client.post(
@@ -856,11 +856,11 @@ class TestAuthorized:
             create_movie,
             create_certification,
             create_comment,
-            get_user_id_and_access_token,
+            get_access_token_and_user_id,
             db,
             client: AsyncClient,
     ):
-        access_token, user_id = await get_user_id_and_access_token()
+        access_token, user_id = await get_access_token_and_user_id()
         certification_db = await create_certification()
         test_movie = await create_movie(certification_id=certification_db.id)
         test_comment = await create_comment(user_id=user_id, movie_id=test_movie.id)

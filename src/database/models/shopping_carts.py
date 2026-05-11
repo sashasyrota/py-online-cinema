@@ -15,9 +15,9 @@ class CartItem(Base):
     __tablename__ = "cart_items"
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     cart_id: Mapped[int] = mapped_column(ForeignKey("carts.id"), nullable=False)
-    cart: Mapped["Cart"] = relationship(back_populates="cart_items")
+    cart: Mapped["Cart"] = relationship(back_populates="cart_items", lazy="joined")
     movie_id: Mapped[int] = mapped_column(ForeignKey("movies.id"), nullable=False)
-    movie: Mapped["Movie"] = relationship(back_populates="cart_items")
+    movie: Mapped["Movie"] = relationship(back_populates="cart_items", lazy="joined")
     added_at: Mapped[datetime.datetime] = mapped_column(DateTime, server_default=func.now())
 
     __table_args__ = (
@@ -29,4 +29,4 @@ class Cart(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, unique=True)
-    cart_items: Mapped[List[CartItem]] = relationship(back_populates="cart", lazy="joined")
+    cart_items: Mapped[List[CartItem]] = relationship(back_populates="cart", lazy="selectin", cascade="all, delete")

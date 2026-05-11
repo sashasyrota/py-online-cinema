@@ -7,7 +7,8 @@ from PIL import Image
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from database.models import User, Genre, Star, Director, Certification, Movie, Comment, Rate
+from database.models import User, Genre, Star, Director, Certification, Movie, Comment, Rate, Cart, CartItem, Order, \
+    OrderItem, OrderStatusEnum, PaymentStatusEnum, Payment, PaymentItem
 from database.session import reset_sqlite_database, get_sqlite_async_db, AsyncSqliteSessionLocal, sqlite_async_engine
 from main import app
 
@@ -46,7 +47,7 @@ async def create_user(db):
 
 
 @pytest_asyncio.fixture(scope="function")
-async def get_user_id_and_access_token(client, db, create_user):
+async def get_access_token_and_user_id(client, db, create_user):
     async def access_token_obj():
         test_user = await create_user()
         test_user.is_active = True
@@ -164,7 +165,8 @@ async def create_movie(db):
             price: decimal.Decimal = "10.30",
             genres: list = None,
             directors: list = None,
-            stars: list = None
+            stars: list = None,
+            is_deleted: bool = False
     ):
         if genres is None:
             genres = []
@@ -185,7 +187,8 @@ async def create_movie(db):
             certification_id=certification_id,
             genres=genres,
             directors=directors,
-            stars=stars
+            stars=stars,
+            is_deleted=is_deleted
         )
         db.add(db_movie)
         await db.commit()
@@ -205,3 +208,66 @@ async def create_rate(db):
         await db.commit()
         return _db_rate
     return rate_obj
+
+
+@pytest_asyncio.fixture(scope="function")
+async def create_cart(db):
+    async def cart_obj(movie_id, user_id):
+
+        _db_cart = Cart(
+            user_id=user_id
+        )
+        db.add(_db_cart)
+        await db.flush()
+        _db_cart_item = CartItem(
+            cart_id=_db_cart.id,
+            movie_id=movie_id
+        )
+        db.add(_db_cart_item)
+        await db.commit()
+        return _db_cart
+    return cart_obj
+
+@pytest_asyncio.fixture(scope="function")
+async def create_order(db):
+    async def order_obj(user_id, movie_id, price, status: OrderStatusEnum = OrderStatusEnum.PENDING):
+
+        _db_order = Order(
+            user_id=user_id,
+            status=status,
+            total_amount=price
+        )
+        db.add(_db_order)
+        await db.flush()
+        _db_order_item = OrderItem(
+            order_id=_db_order.id,
+            movie_id=movie_id,
+            price_at_order=price,
+        )
+        db.add(_db_order_item)
+        await db.commit()
+        return _db_order
+    return order_obj
+
+
+@pytest_asyncio.fixture(scope="function")
+async def create_payment(db):
+    async def payment_obj(user_id, order_id, amount, status: PaymentStatusEnum = PaymentStatusEnum.SUCCESSFUL):
+        _db_payment = Payment(
+            user_id=user_id,
+            order_id=order_id,
+            status=status,
+            amount=amount,
+            external_payment_id="12831"
+        )
+        db.add(_db_payment)
+        await db.flush()
+        _db_payment_item = PaymentItem(
+            price_at_payment=amount,
+            payment_id=12232141,
+            order_item_id=1
+        )
+        db.add(_db_payment_item)
+        await db.commit()
+        return _db_payment
+    return payment_obj

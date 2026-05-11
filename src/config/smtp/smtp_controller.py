@@ -2,6 +2,8 @@ import os
 import smtplib
 from email.message import EmailMessage
 
+from celery.worker.control import hello
+
 
 def sent_message(content: str, subject: str, recipient_email: str):
     msg = EmailMessage()

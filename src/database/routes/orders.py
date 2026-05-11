@@ -41,9 +41,12 @@ async def get_order_item_by_order_id(order_id: int, db: AsyncSession):
     return order_item_db
 
 
-@orders.post("/create_order/", response_model=OrderResponseDetailSchema)
+@orders.post(
+    "/create_order/",
+    response_model=OrderResponseDetailSchema,
+    status_code=201
+)
 async def create_order(
-        order_create_schema: OrderCreateSchema,
         header: str = Depends(authorization_header),
         db: AsyncSession = Depends(get_async_db),
 ):
@@ -53,7 +56,7 @@ async def create_order(
     result = await db.execute(stmt_cart)
     cart_db = result.unique().scalar_one_or_none()
 
-    stmt_cart_item = select(CartItem).filter(CartItem.cart_id == cart_db.id, CartItem.id.in_(order_create_schema.cart_item_ids))
+    stmt_cart_item = select(CartItem).filter(CartItem.cart_id == cart_db.id)
     result = await db.execute(stmt_cart_item)
     cart_items_db = result.unique().scalars().all()
 

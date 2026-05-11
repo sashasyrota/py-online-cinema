@@ -1,3 +1,5 @@
+from typing import Optional
+
 from asyncpg import UniqueViolationError
 from celery.bin.result import result
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import JSONResponse, Response
 
 from config.security.jwt_token import authorization_header, validate_access_token
+from database.routes.movies import get_movie_by_id
 from src.database.models.orders import OrderItem, OrderStatusEnum, Order
 from src.database.models.shopping_carts import Cart, CartItem
 from database.routes.accounts import get_user_by_id, validate_is_staff_user
@@ -37,24 +40,27 @@ async def get_carts(
     return carts_db
 
 
-@carts.get("/carts/{cart_id:int}/", response_model=CartDetailResponseSchema)
+@carts.get("/cart_detail/", response_model=CartDetailResponseSchema)
 async def get_cart_detail(
-        cart_id: int,
+        cart_id: int | None = None,
         header: str = Depends(authorization_header),
         db: AsyncSession = Depends(get_async_db)
 ):
     access_token = validate_access_token(header=header)
     user_id = access_token["user_id"]
     user_db = await get_user_by_id(user_id=user_id, db=db)
-
-    stmt = select(Cart).filter_by(id=cart_id)
+    stmt = select(Cart).filter_by(user_id=user_id)
+    if cart_id:
+        if user_db.group_id == 3:
+            stmt = select(Cart).filter_by(id=cart_id)
+        else:
+            raise HTTPException(status_code=403, detail="You dont have permission to this action")
     result = await db.execute(stmt)
     cart_db = result.unique().scalar_one_or_none()
 
-    if user_db.group_id != 1 or cart_db.user_id == user_id:
-        return cart_db
-    raise HTTPException(status_code=403, detail="You dont have permission to this action")
-
+    if not cart_db:
+        raise HTTPException(status_code=404, detail="Cart not found")
+    return cart_db
 
 @carts.post("/carts/add_item/", response_model=CartListResponseSchema)
 async def add_item_or_create_carts(
@@ -65,7 +71,11 @@ async def add_item_or_create_carts(
     access_token = validate_access_token(header=header)
     user_id = access_token["user_id"]
     cart_db = await get_card_by_user_id(user_id, db)
-
+    movie_db = await get_movie_by_id(cart_item_schema.movie_id, db)
+    if not movie_db:
+        raise HTTPException(status_code=404, detail=f"Movie with id: {cart_item_schema.movie_id} not exist in db.")
+    if movie_db.is_deleted:
+        raise HTTPException(status_code=400, detail=f"You can`t add to cart deleted movie.")
     try:
         if not cart_db:
             cart_db = Cart(
@@ -83,13 +93,13 @@ async def add_item_or_create_carts(
         paid_movie_db = result.unique().scalar_one_or_none()
         if paid_movie_db:
             raise HTTPException(status_code=400, detail=f"Movie with id: {cart_item_schema.movie_id} already purchased")
-
         stmt = select(CartItem).filter_by(cart_id=cart_db.id, movie_id=cart_item_schema.movie_id)
         result = await db.execute(stmt)
         search_card = result.unique().scalar_one_or_none()
         if search_card:
             raise HTTPException(status_code=400, detail=f"Movie with id: {cart_item_schema.movie_id} already exist in this cart.")
 
+        await db.refresh(cart_db)
         cart_item_db = CartItem(
             movie_id=cart_item_schema.movie_id
         )
@@ -102,7 +112,10 @@ async def add_item_or_create_carts(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@carts.delete("/carts/delete_item/{movie_id:int}/", response_model=CartListResponseSchema)
+@carts.delete(
+    "/carts/delete_item/{movie_id:int}/",
+    status_code=204
+)
 async def delete_item_from_cart(
         movie_id: int,
         db: AsyncSession = Depends(get_async_db),
@@ -121,8 +134,7 @@ async def delete_item_from_cart(
         try:
             await db.delete(db_cart_item)
             await db.commit()
-            await db.refresh(cart_db)
-            return cart_db
+            return
         except Exception as exc:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(exc))

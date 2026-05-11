@@ -3,7 +3,7 @@ import uuid
 from typing import Optional, List, TYPE_CHECKING
 
 from sqlalchemy import Text, DECIMAL, ForeignKey, Table, Column, types, UniqueConstraint, UUID, Uuid, String, Integer, \
-    Float, CheckConstraint
+    Float, CheckConstraint, Boolean
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -162,6 +162,7 @@ class Movie(Base):
     who_add_to_favourite: Mapped[List["User"]] = relationship(back_populates="favourite_movies", secondary=movies_users_who_add_to_favourite, lazy="selectin")
     rates: Mapped[List[Rate]] = relationship(back_populates="movie", lazy="selectin")
     cart_items: Mapped[List["CartItem"]] = relationship(back_populates="movie", lazy="selectin")
+    is_deleted: Mapped[bool] = mapped_column(Boolean, server_default="False")
 
     __table_args__ = (
         CheckConstraint('meta_score >= 0', name='meta_score_ge_0'),

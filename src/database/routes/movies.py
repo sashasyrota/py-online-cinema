@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import math
 import os
 from decimal import Decimal
@@ -127,8 +128,9 @@ MovieParamsDep = Annotated[dict, Depends(movies_params)]
 
 
 def get_stmt_with_query_params(movies_params: dict):
-    stmt = select(Movie).limit(movies_params["per_page"]).offset(
-        (movies_params["page"] - 1) * movies_params["per_page"])
+    stmt = (select(Movie).limit(movies_params["per_page"]).offset(
+        (movies_params["page"] - 1) * movies_params["per_page"]).
+            filter_by(is_deleted=False))
 
     if movies_params["sort_by"]:
         if movies_params["sort_by"] == "name":
@@ -251,8 +253,9 @@ async def delete_movie(
         db: AsyncSession = Depends(get_async_db)
 ):
     user_db = await validate_is_staff_user(header, db)
-
     movie_db = await get_model_db_by_id(Movie, movie_id, db)
+    if movie_db.is_deleted:
+        raise HTTPException(status_code=400, detail=f"Movie with id: {movie_id} already deleted")
 
     stmt_paid_order = select(Order).filter(Order.order_items.any(OrderItem.movie_id == movie_id),  Order.status == OrderStatusEnum.PAID)
     result = await db.execute(stmt_paid_order)
@@ -264,15 +267,19 @@ async def delete_movie(
     result = await db.execute(stmt_movie_in_cart)
     db_carts = result.unique().scalars().all()
     if db_carts:
-        background_tasks.add_task(
-            sent_message,
-            f"Deletion a movie with id: {movie_id}, that exist in carts",
-            "Very important",
-            user_db.email
-        )
+        stmt_moderators_email = select(User.email).filter_by(group_id=2)
+        result = await db.execute(stmt_moderators_email)
+        moderators_email = result.unique().scalars().all()
+        for email in moderators_email:
+            background_tasks.add_task(
+                sent_message,
+                f"Deletion a movie with id: {movie_id}, that exist in carts",
+                "Very important",
+                email
+            )
 
     try:
-        await db.delete(movie_db)
+        movie_db.is_deleted = True
         await db.commit()
         return {"Movie deleted": True}
     except IntegrityError as err:
@@ -401,6 +408,9 @@ async def rate_movie(
     access_token = validate_access_token(header)
     user_id = access_token["user_id"]
     movie_db = await get_model_db_by_id(Movie, movie_id, db)
+    if not movie_db:
+        raise HTTPException(status_code=404, detail=f"Movie with id {movie_id} not found")
+
     try:
         stmt = select(Rate).filter(Rate.user_id == user_id, Rate.movie_id == movie_id)
         result = await db.execute(stmt)

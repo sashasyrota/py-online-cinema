@@ -12,6 +12,7 @@ from starlette.responses import RedirectResponse
 from stripe import InvalidRequestError
 
 from config.security.jwt_token import authorization_header, validate_access_token
+from database.models import Cart
 from src.database.models.orders import OrderStatusEnum
 from src.database.models.payments import PaymentStatusEnum
 from src.database.models.payments import PaymentItem
@@ -78,7 +79,7 @@ async def create_payment_request(
 
 @payments.get("/create_payment_complete/")
 async def create_payment_complete(
-        session_id: str | None = None,
+        session_id: str,
         db: AsyncSession = Depends(get_async_db),
 ):
     try:
@@ -92,6 +93,7 @@ async def create_payment_complete(
     if session["payment_status"] == "paid":
         try:
             order_db = await get_order_by_id(id=int(session["metadata"]["order_id"]), db=db)
+
             order_db.status = OrderStatusEnum.PAID
 
             payment = Payment(
@@ -102,7 +104,6 @@ async def create_payment_complete(
             )
             db.add(payment)
             await db.flush()
-
             for order_item in order_db.order_items:
                 payment_item = PaymentItem(
                     order_item_id=order_item.id,
@@ -111,11 +112,15 @@ async def create_payment_complete(
                 )
                 db.add(payment_item)
                 await db.flush()
+            stmt_cart = select(Cart).filter_by(user_id=order_db.user_id)
+            result = await db.execute(stmt_cart)
+            cart_db = result.unique().scalar_one_or_none()
+            await db.delete(cart_db)
 
             await db.commit()
             return {"Payment complete successful": True}
 
-        except Exception as exc:
+        except IntegrityError as exc:
             await db.rollback()
             client.v1.refunds.create({"payment_intent": session["payment_intent"]})
             raise exc
@@ -131,7 +136,11 @@ async def create_refund_payment(
     access_token = validate_access_token(header=header)
     user_id = access_token["user_id"]
 
-    stmt = select(Payment).filter(Payment.user_id == user_id, Payment.order_id == refund_schema.order_id)
+    stmt = select(Payment).filter(
+        Payment.user_id == user_id,
+        Payment.order_id == refund_schema.order_id,
+        Payment.status == PaymentStatusEnum.SUCCESSFUL
+    )
     result = await db.execute(stmt)
     payment_db = result.unique().scalar_one_or_none()
     order_db = await get_order_by_id(id=refund_schema.order_id, db=db)
