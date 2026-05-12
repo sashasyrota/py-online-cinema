@@ -24,7 +24,8 @@ def upgrade() -> None:
     op.alter_column('movies', 'uuid',
                existing_type=sa.VARCHAR(),
                type_=sa.UUID(),
-               existing_nullable=False)
+               existing_nullable=False,
+               postgresql_using="uuid::uuid")
     # ### end Alembic commands ###
 
 

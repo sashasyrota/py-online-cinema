@@ -1,12 +1,13 @@
 import asyncio
 import datetime
+import typing
 
 from fastapi import Depends
 from sqlalchemy import select, delete
 from sqlalchemy.orm import Session
-from database.celery_conf import app
 from src.database.models.accounts import ActivationToken, PasswordResetToken, RefreshToken
-from database.session import get_async_db, get_sync_db, SyncSessionLocal
+from src.database.session import get_async_db, get_sync_db, SyncSessionLocal
+from src.database import app
 
 
 def select_token(session: Session):

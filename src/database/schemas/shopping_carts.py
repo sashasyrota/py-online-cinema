@@ -3,7 +3,7 @@ import decimal
 
 from pydantic import BaseModel, ConfigDict
 
-from database.schemas.movies import MovieFieldListSchema
+from src.database.schemas.movies import MovieFieldListSchema
 
 
 class CartItemCreateSchema(BaseModel):

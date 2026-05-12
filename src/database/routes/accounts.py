@@ -7,20 +7,19 @@ from fastapi.security import APIKeyHeader
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config.s3.s3_controller import put_image_to_minio
-from config.security.jwt_token import create_token, decode_token, authorization_header
-from config.security.password import verify_password
-from config.settings import ACTIVATION_TOKEN_EXPIRE_MINUTES, RESET_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_MINUTES, \
+from src.config.s3.s3_controller import put_image_to_minio
+from src.config.security.jwt_token import create_token, decode_token, authorization_header
+from src.config.security.password import verify_password
+from src.config.settings import ACTIVATION_TOKEN_EXPIRE_MINUTES, RESET_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_MINUTES, \
     ACCESS_TOKEN_EXPIRE_MINUTES
-from config.security.jwt_token import validate_access_token
-from database.session import AsyncSqliteSessionLocal
+from src.config.security.jwt_token import validate_access_token
 from src.database.models.accounts import User, ActivationToken, PasswordResetToken, RefreshToken, UserProfile, GenderEnum
-from database.schemas.accounts import AccountResendActivationLinkRequestSchema, AccountResetPasswordRequestSchema, \
+from src.database.schemas.accounts import AccountResendActivationLinkRequestSchema, AccountResetPasswordRequestSchema, \
     AccountResetPasswordCompleteSchema, AccountLoginSchema, RefreshTokenSchema, AccountLogoutSchema, AccountChangeSchema
-from database.schemas.accounts import ProfileCreateRequestSchema
+from src.database.schemas.accounts import ProfileCreateRequestSchema
 from src.database.schemas.accounts import AccountCreationRequestSchema, AccountActivationRequestSchema
 from src.database import get_async_db
-from tasks import expired_tokens
+from src.tasks import expired_tokens
 
 accounts = APIRouter(
     prefix="/accounts"

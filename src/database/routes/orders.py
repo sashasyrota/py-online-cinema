@@ -6,11 +6,9 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config.security.jwt_token import authorization_header, validate_access_token
+from src.config.security.jwt_token import authorization_header, validate_access_token
 from src.database.models.orders import Order, OrderItem, OrderStatusEnum
 from src.database.models.shopping_carts import CartItem, Cart
-from src.database.routes.accounts import get_user_by_email, get_user_by_id
-from src.database.routes.movies import get_movie_by_id
 from src.database.schemas.orders import OrderItemCreateSchema, OrderCreateSchema, OrderResponseDetailSchema, \
     OrderCancelRequestSchema
 from src.database import get_async_db

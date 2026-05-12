@@ -86,7 +86,7 @@ class Token:
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
     token: Mapped[str] = mapped_column(nullable=False)
-    expires_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=False), nullable=False)
 
 
 class ActivationToken(Token, Base):

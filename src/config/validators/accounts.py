@@ -2,8 +2,6 @@ import re
 
 from fastapi import HTTPException
 
-from config.security.jwt_token import decode_token
-
 
 def validate_password(password: str):
     if len(password) < 8:

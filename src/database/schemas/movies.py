@@ -2,13 +2,7 @@ import decimal
 
 from fastapi import Depends
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
-from watchfiles import awatch
 
-from database import get_async_db, get_sync_db
-from database.models import Movie
 
 
 class MovieFieldListSchema(BaseModel):

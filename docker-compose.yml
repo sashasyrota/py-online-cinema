@@ -8,12 +8,23 @@ services:
       - .env
     volumes:
       - pgdata:/var/lib/postgresql
-  
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB -h 127.0.0.1 || exit 1" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - theater_network
+
+
   redis:
     image: redis:latest
     container_name: redis-container
     ports:
       - "6379:6379"
+    networks:
+      - theater_network
+
 
   minio:
     image: minio/minio:latest
@@ -30,6 +41,8 @@ services:
       interval: 30s
       timeout: 20s
       retries: 3
+    networks:
+      - theater_network
 
   mailhog:
     image: mailhog/mailhog
@@ -37,8 +50,81 @@ services:
     ports:
       - "1025:1025"
       - "8025:8025"
+    networks:
+      - theater_network
+
+  migrator:
+    build: .
+    container_name: alembic_migrator_theater
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./src:/usr/src/fastapi
+    env_file:
+      - .env
+    environment:
+      - PYTHONPATH=/usr/src/fastapi
+    networks:
+      - theater_network
+
+  online-cinema:
+    container_name: online_cinema_container
+    build:
+      context: .
+    env_file:
+      - .env
+    command:
+      ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+         condition: service_healthy
+    volumes:
+      - ./:/app
+    networks:
+      - theater_network
+
+  celery_worker:
+    build:
+      context: .
+    command: celery -A src.database.celery_beat_conf worker --loglevel=info
+    depends_on:
+      - redis
+    networks:
+      - theater_network
+
+  celery_beat:
+    build:
+      context: .
+    command: celery -A src.database.celery_beat_conf beat --loglevel=info
+    depends_on:
+      - celery_worker
+    networks:
+      - theater_network
+
+  flower:
+    container_name: flower
+    build:
+      context: .
+    ports:
+      - "5555:5555"
+    command: celery -A src.tasks.app flower
+    volumes:
+      - ./src:/app/src
+    depends_on:
+      online-cinema:
+        condition: service_started
+    networks:
+      - theater_network
 
 
 volumes:
   pgdata:
   minio-storage:
+
+networks:
+  theater_network:
+    driver: bridge

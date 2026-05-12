@@ -8,12 +8,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import JSONResponse, Response
 
-from config.security.jwt_token import authorization_header, validate_access_token
-from database.routes.movies import get_movie_by_id
+from src.config.security.jwt_token import authorization_header, validate_access_token
+from src.database.routes.movies import get_movie_by_id
 from src.database.models.orders import OrderItem, OrderStatusEnum, Order
 from src.database.models.shopping_carts import Cart, CartItem
-from database.routes.accounts import get_user_by_id, validate_is_staff_user
-from database.schemas.shopping_carts import CartItemCreateSchema, CartDetailResponseSchema, CartListResponseSchema
+from src.database.routes.accounts import get_user_by_id, validate_is_staff_user
+from src.database.schemas.shopping_carts import CartItemCreateSchema, CartDetailResponseSchema, CartListResponseSchema
 from src.database import get_async_db
 
 carts = APIRouter(

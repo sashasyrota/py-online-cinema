@@ -14,15 +14,15 @@ from sqlalchemy import select, delete
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config.security.jwt_token import authorization_header, validate_access_token
-from config.smtp.smtp_controller import sent_message
+from src.config.security.jwt_token import authorization_header, validate_access_token
+from src.config.smtp.smtp_controller import sent_message
 from src.database.models.accounts import User
 from src.database.models.movies import Movie, Certification, Genre, Director, Star, LikeMovie, DislikeMovie, Comment, Rate, \
     LikeComment, DislikeComment
 from src.database.models.orders import OrderItem, Order, OrderStatusEnum
 from src.database.models.shopping_carts import CartItem
 from src.database.routes.accounts import get_user_by_id, validate_is_staff_user
-from database.schemas.movies import MovieListResponseSchema, MovieDetailResponseSchema, MovieCommentCreationSchema, \
+from src.database.schemas.movies import MovieListResponseSchema, MovieDetailResponseSchema, MovieCommentCreationSchema, \
     MovieFavouriteRequestSchema, RateRequestSchema, GenreStarResponseSchema, CommentReplySchema, \
     MovieCommentListResponseSchema, MovieCreateRequestSchema, MovieUpdateRequestSchema, GenreStarDetailResponseSchema, \
     GenreCreateSchema, GenreUpdateSchema, GenreStarResponseSchema, StarCreateSchema, StarUpdateSchema, \
