@@ -1,14 +1,12 @@
-import decimal
 import os
 from unittest.mock import patch
 
 import pytest
 import stripe
-from requests import session
 from sqlalchemy import select
 
-from database.models import OrderStatusEnum, Payment, PaymentStatusEnum, Cart, CartItem
-from database.tests.integration_tests.conftest import create_order, create_payment
+from src.database.models import OrderStatusEnum, Payment, PaymentStatusEnum, CartItem
+from src.database.tests.conftest import create_order, create_payment
 
 payment_prefix = "/api/v1/payments/"
 

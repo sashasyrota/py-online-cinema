@@ -5,8 +5,8 @@ from httpx import AsyncClient
 from httpx._types import RequestFiles
 from sqlalchemy import select
 
-from database.models import User, RefreshToken, UserProfile
-from database.tests.integration_tests.conftest import image_in_memory
+from src.database.models import User, RefreshToken, UserProfile
+from src.database.tests.conftest import image_in_memory
 
 account_prefix = "/api/v1/accounts/"
 

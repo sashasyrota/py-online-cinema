@@ -7,9 +7,9 @@ from PIL import Image
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from database.models import User, Genre, Star, Director, Certification, Movie, Comment, Rate, Cart, CartItem, Order, \
+from src.database.models import User, Genre, Star, Director, Certification, Movie, Comment, Rate, Cart, CartItem, Order, \
     OrderItem, OrderStatusEnum, PaymentStatusEnum, Payment, PaymentItem
-from database.session import reset_sqlite_database, get_sqlite_async_db, AsyncSqliteSessionLocal, sqlite_async_engine
+from src.database.session import reset_sqlite_database, get_sqlite_async_db, AsyncSqliteSessionLocal, sqlite_async_engine
 from main import app
 
 

@@ -1,10 +1,9 @@
 import pytest
 from sqlalchemy import select
 
-from database.models import Order, OrderStatusEnum
-from database.routes.orders import get_pending_order_by_user_id
-from database.schemas.orders import OrderResponseDetailSchema
-from database.tests.integration_tests.conftest import create_movie, create_certification
+from src.database.models import Order, OrderStatusEnum
+from src.database.schemas.orders import OrderResponseDetailSchema
+from src.database.tests.conftest import create_movie, create_certification
 
 order_prefix = "/api/v1/orders/"
 

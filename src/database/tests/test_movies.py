@@ -5,11 +5,10 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 
-from config.security.jwt_token import validate_access_token
-from database.models import Genre, Star, Director, Movie, Comment, User, LikeMovie, Rate
-from database.schemas.movies import GenreStarResponseSchema, MovieDetailResponseSchema, GenreStarDetailResponseSchema, \
+from src.database.models import Genre, Star, Movie, Comment, User
+from src.database.schemas.movies import GenreStarResponseSchema, MovieDetailResponseSchema, GenreStarDetailResponseSchema, \
     MovieListResponseSchema, MovieCommentListResponseSchema, CommentResponseSchema, ReplyCommentResponseSchema
-from database.tests.integration_tests.conftest import create_director
+from src.database.tests.conftest import create_director
 
 movie_prefix = "/api/v1/theater/"
 

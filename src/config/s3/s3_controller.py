@@ -1,11 +1,11 @@
 import io
-
+import os
 
 from minio import Minio
 from fastapi import UploadFile, HTTPException
 
 client = Minio(
-    "localhost:9000",
+    f"localhost:{os.getenv("MINIO_PORT")}",
     access_key="myuser",
     secret_key="mysecretpassword",
     secure=False

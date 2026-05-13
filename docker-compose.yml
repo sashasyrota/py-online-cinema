@@ -28,6 +28,7 @@ services:
 
   minio:
     image: minio/minio:latest
+    container_name: minio_container
     command: server --console-address ":9001" /data/
     ports:
       - "9000:9000"

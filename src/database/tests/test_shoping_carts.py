@@ -1,20 +1,16 @@
-import json
 import os
 from email.message import EmailMessage
 from unittest import mock
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock
 
 import pytest
-from colorama.ansi import clear_line
-from pytest_mock import mocker
 from sqlalchemy import select
 
-import main
-from config.smtp.smtp_controller import sent_message
-from database.models import Cart, OrderStatusEnum
-from database.schemas.shopping_carts import CartDetailResponseSchema, CartListResponseSchema
-from database.tests.integration_tests.conftest import get_access_token_and_user_id, create_movie, create_certification
-from database.tests.integration_tests.test_movies import movie_prefix
+from src.config.smtp.smtp_controller import sent_message
+from src.database.models import Cart, OrderStatusEnum
+from src.database.schemas.shopping_carts import CartDetailResponseSchema, CartListResponseSchema
+from src.database.tests.conftest import get_access_token_and_user_id, create_movie, create_certification
+from src.database.tests.test_movies import movie_prefix
 
 cart_prefix = "/api/v1/shopping_carts/"
 
