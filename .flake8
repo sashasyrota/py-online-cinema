@@ -1,0 +1,12 @@
+[flake8]
+
+exclude =
+    venv, alembic
+ignore = ANN001, ANN101, ANN201, F541, F811, W504, W503, ANN202, VNE003, ANN206, ANN102
+inline-quotes = "
+per-file-ignores =
+    __init__.py: F401
+    movies.py: F401
+    session.py: E231
+    s3_controller.py: E231
+

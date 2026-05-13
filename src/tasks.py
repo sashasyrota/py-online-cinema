@@ -1,18 +1,21 @@
-import asyncio
 import datetime
-import typing
 
-from fastapi import Depends
-from sqlalchemy import select, delete
+from sqlalchemy import delete
 from sqlalchemy.orm import Session
-from src.database.models.accounts import ActivationToken, PasswordResetToken, RefreshToken
-from src.database.session import get_async_db, get_sync_db, SyncSessionLocal
+from src.database.models.accounts import (
+    ActivationToken,
+    PasswordResetToken,
+    RefreshToken,
+)
+from src.database.session import SyncSessionLocal
 from src.database import app
 
 
 def select_token(session: Session):
     for token in [ActivationToken, PasswordResetToken, RefreshToken]:
-        stmt = delete(token).filter(token.expires_at < datetime.datetime.now(datetime.UTC))
+        stmt = delete(token).filter(
+            token.expires_at < datetime.datetime.now(datetime.UTC)
+        )
         session.execute(stmt)
         session.commit()
 

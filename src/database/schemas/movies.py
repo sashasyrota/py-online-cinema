@@ -1,8 +1,11 @@
 import decimal
 
-from fastapi import Depends
-from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
-
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_serializer,
+)
 
 
 class MovieFieldListSchema(BaseModel):
@@ -36,6 +39,7 @@ class LikeDislikeSchema(BaseModel):
 class CommentSchema(BaseModel):
     id: int
 
+
 class MovieIdSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -49,7 +53,6 @@ class MovieListResponseSchema(MovieBaseSchema):
     likes_count: int
     dislikes_movies: list[LikeDislikeSchema]
     dislikes_count: int
-
 
 
 class MovieDetailResponseSchema(MovieBaseSchema):

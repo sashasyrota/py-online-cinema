@@ -6,9 +6,7 @@ from src.database.routes.payments import payments
 from src.database.routes.shopping_carts import carts
 from src.database.routes.accounts import accounts
 
-app = FastAPI(
-
-)
+app = FastAPI()
 
 pref = "/api/v1"
 app.include_router(accounts, prefix=pref)

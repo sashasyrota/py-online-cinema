@@ -1,6 +1,6 @@
 import datetime
 
-from pydantic import BaseModel, EmailStr, field_validator, model_validator
+from pydantic import BaseModel, EmailStr, model_validator
 
 from src.config.validators.accounts import validate_password
 from src.database.models.accounts import GenderEnum

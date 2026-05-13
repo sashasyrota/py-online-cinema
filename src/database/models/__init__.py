@@ -7,9 +7,13 @@ from src.database.models.accounts import (
     RefreshToken,
     UserProfile,
     UserGroupEnum,
-    GenderEnum
+    GenderEnum,
 )
-from src.database.models.payments import Payment, PaymentItem, PaymentStatusEnum
+from src.database.models.payments import (
+    Payment,
+    PaymentItem,
+    PaymentStatusEnum,
+)
 from src.database.models.shopping_carts import CartItem, Cart
 from src.database.models.movies import (
     movies_users_who_add_to_favourite,
@@ -26,6 +30,6 @@ from src.database.models.movies import (
     DislikeMovie,
     Rate,
     Movie,
-    Comment
+    Comment,
 )
 from src.database.models.orders import OrderStatusEnum, Order, OrderItem

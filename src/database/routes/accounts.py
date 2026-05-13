@@ -3,27 +3,49 @@ from datetime import timezone
 
 from fastapi import APIRouter, HTTPException, Form, UploadFile, File, Security
 from fastapi.params import Depends
-from fastapi.security import APIKeyHeader
-from sqlalchemy import select, delete
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config.s3.s3_controller import put_image_to_minio
-from src.config.security.jwt_token import create_token, decode_token, authorization_header
+from src.config.security.jwt_token import (
+    create_token,
+    decode_token,
+    authorization_header,
+)
 from src.config.security.password import verify_password
-from src.config.settings import ACTIVATION_TOKEN_EXPIRE_MINUTES, RESET_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_MINUTES, \
-    ACCESS_TOKEN_EXPIRE_MINUTES
+from src.config.settings import (
+    ACTIVATION_TOKEN_EXPIRE_MINUTES,
+    RESET_TOKEN_EXPIRE_MINUTES,
+    REFRESH_TOKEN_EXPIRE_MINUTES,
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+)
 from src.config.security.jwt_token import validate_access_token
-from src.database.models.accounts import User, ActivationToken, PasswordResetToken, RefreshToken, UserProfile, GenderEnum
-from src.database.schemas.accounts import AccountResendActivationLinkRequestSchema, AccountResetPasswordRequestSchema, \
-    AccountResetPasswordCompleteSchema, AccountLoginSchema, RefreshTokenSchema, AccountLogoutSchema, AccountChangeSchema
+from src.database.models.accounts import (
+    User,
+    ActivationToken,
+    PasswordResetToken,
+    RefreshToken,
+    UserProfile,
+    GenderEnum,
+)
+from src.database.schemas.accounts import (
+    AccountResendActivationLinkRequestSchema,
+    AccountResetPasswordRequestSchema,
+    AccountResetPasswordCompleteSchema,
+    AccountLoginSchema,
+    RefreshTokenSchema,
+    AccountLogoutSchema,
+    AccountChangeSchema,
+)
 from src.database.schemas.accounts import ProfileCreateRequestSchema
-from src.database.schemas.accounts import AccountCreationRequestSchema, AccountActivationRequestSchema
+from src.database.schemas.accounts import (
+    AccountCreationRequestSchema,
+    AccountActivationRequestSchema,
+)
 from src.database import get_async_db
 from src.tasks import expired_tokens
 
-accounts = APIRouter(
-    prefix="/accounts"
-)
+accounts = APIRouter(prefix="/accounts")
 
 
 async def get_user_by_email(email: str, db: AsyncSession):
@@ -45,61 +67,63 @@ async def validate_is_staff_user(header: str, db: AsyncSession):
     user_id = access_token["user_id"]
     user_db = await get_user_by_id(user_id, db)
     if user_db.group_id == 1:
-        raise HTTPException(status_code=403, detail="You don`t have permission to this action")
+        raise HTTPException(
+            status_code=403, detail="You don`t have permission to this action"
+        )
     return user_db
 
 
-@accounts.post(
-    "/register/",
-    status_code=201
-)
+@accounts.post("/register/", status_code=201)
 async def create_account(
-        account_schema: AccountCreationRequestSchema,
-        db: AsyncSession = Depends(get_async_db)
+    account_schema: AccountCreationRequestSchema,
+    db: AsyncSession = Depends(get_async_db),
 ):
     stmt_user = select(User)
-    result = await db.execute(stmt_user)
+    await db.execute(stmt_user)
 
     stmt = select(User).where(User.email == account_schema.email)
     result_dublicate_user = await db.execute(stmt)
     if result_dublicate_user.scalar_one_or_none():
         raise HTTPException(
             status_code=400,
-            detail=f"User with {account_schema.email} is registered")
+            detail=f"User with {account_schema.email} is registered",
+        )
 
-    db_user = User(
-        email = str(account_schema.email),
-        group_id=1
-    )
+    db_user = User(email=str(account_schema.email), group_id=1)
     db_user.password = account_schema.password
     db.add(db_user)
     await db.flush()
 
     token = create_token(
         data={"user_id": db_user.id},
-        expires_delta=datetime.timedelta(minutes=ACTIVATION_TOKEN_EXPIRE_MINUTES)
+        expires_delta=datetime.timedelta(
+            minutes=ACTIVATION_TOKEN_EXPIRE_MINUTES
+        ),
     )
     db_activation_token = ActivationToken(
         user_id=db_user.id,
         token=token,
-        expires_at=datetime.datetime.now(timezone.utc) + datetime.timedelta(minutes=ACTIVATION_TOKEN_EXPIRE_MINUTES)
+        expires_at=datetime.datetime.now()
+        + datetime.timedelta(minutes=ACTIVATION_TOKEN_EXPIRE_MINUTES),
     )
     db.add(db_activation_token)
     await db.commit()
-    return {"email": account_schema.email, "activation_token": db_activation_token.token}
+    return {
+        "email": account_schema.email,
+        "activation_token": db_activation_token.token,
+    }
 
 
-@accounts.post(
-    "/activate/",
-    status_code=200
-)
+@accounts.post("/activate/", status_code=200)
 async def activate_account(
-        account_schema: AccountActivationRequestSchema,
-        db: AsyncSession = Depends(get_async_db)
+    account_schema: AccountActivationRequestSchema,
+    db: AsyncSession = Depends(get_async_db),
 ):
     decode_token(account_schema.activation_token)
 
-    stmt = select(ActivationToken).filter_by(token=account_schema.activation_token)
+    stmt = select(ActivationToken).filter_by(
+        token=account_schema.activation_token
+    )
     result = await db.execute(stmt)
     db_activation_token = result.unique().scalar_one_or_none()
 
@@ -115,16 +139,15 @@ async def activate_account(
                 await db.rollback()
                 raise HTTPException(status_code=500, detail=str(exc))
         raise HTTPException(status_code=400, detail="User already activated")
-    raise HTTPException(status_code=404, detail="User with this activation token not found")
+    raise HTTPException(
+        status_code=404, detail="User with this activation token not found"
+    )
 
 
-@accounts.post(
-    "/resend/",
-    status_code=200
-)
+@accounts.post("/resend/", status_code=200)
 async def resend_activation_link(
-        account_schema: AccountResendActivationLinkRequestSchema,
-        db: AsyncSession = Depends(get_async_db)
+    account_schema: AccountResendActivationLinkRequestSchema,
+    db: AsyncSession = Depends(get_async_db),
 ):
     expired_tokens.delay()
     db_user = await get_user_by_email(str(account_schema.email), db=db)
@@ -132,31 +155,36 @@ async def resend_activation_link(
     if db_user:
         token = create_token(
             data={"user_id": db_user.id},
-            expires_delta=datetime.timedelta(minutes=ACTIVATION_TOKEN_EXPIRE_MINUTES)
+            expires_delta=datetime.timedelta(
+                minutes=ACTIVATION_TOKEN_EXPIRE_MINUTES
+            ),
         )
         db_activation_token = ActivationToken(
             user_id=db_user.id,
             token=token,
-            expires_at=datetime.datetime.now(timezone.utc) + datetime.timedelta(minutes=ACTIVATION_TOKEN_EXPIRE_MINUTES)
+            expires_at=datetime.datetime.now(timezone.utc)
+            + datetime.timedelta(minutes=ACTIVATION_TOKEN_EXPIRE_MINUTES),
         )
         db.add(db_activation_token)
         await db.commit()
         return {"activation_token": token}
-    raise HTTPException(status_code=400, detail=f"User with {account_schema.email} not registered")
+    raise HTTPException(
+        status_code=400,
+        detail=f"User with {account_schema.email} not registered",
+    )
 
 
-@accounts.post(
-    "/reset-request/",
-    status_code=200
-)
+@accounts.post("/reset-request/", status_code=200)
 async def reset_request_password(
-        account_schema: AccountResetPasswordRequestSchema,
-        db: AsyncSession = Depends(get_async_db)
+    account_schema: AccountResetPasswordRequestSchema,
+    db: AsyncSession = Depends(get_async_db),
 ):
     db_user = await get_user_by_email(str(account_schema.email), db=db)
     if db_user:
         if not db_user.is_active:
-            raise HTTPException(status_code=403, detail="User account is not active")
+            raise HTTPException(
+                status_code=403, detail="User account is not active"
+            )
         reset_token_db = db_user.password_reset_token
         try:
             if reset_token_db:
@@ -164,13 +192,15 @@ async def reset_request_password(
                 await db.flush()
             new_reset_token = create_token(
                 data={"user_id": db_user.id},
-                expires_delta=datetime.timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES)
+                expires_delta=datetime.timedelta(
+                    minutes=RESET_TOKEN_EXPIRE_MINUTES
+                ),
             )
             new_reset_token_db = PasswordResetToken(
                 user_id=db_user.id,
                 token=new_reset_token,
-                expires_at=datetime.datetime.now(timezone.utc) + datetime.timedelta(
-                    minutes=RESET_TOKEN_EXPIRE_MINUTES)
+                expires_at=datetime.datetime.now(timezone.utc)
+                + datetime.timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES),
             )
             reset_token_db = new_reset_token_db
             db.add(reset_token_db)
@@ -183,11 +213,13 @@ async def reset_request_password(
 
 @accounts.post("/reset-complete/", status_code=200)
 async def reset_complete_password(
-        account_schema: AccountResetPasswordCompleteSchema,
-        db: AsyncSession = Depends(get_async_db)
+    account_schema: AccountResetPasswordCompleteSchema,
+    db: AsyncSession = Depends(get_async_db),
 ):
     decode_token(account_schema.reset_token)
-    stmt = select(PasswordResetToken).filter_by(token=account_schema.reset_token)
+    stmt = select(PasswordResetToken).filter_by(
+        token=account_schema.reset_token
+    )
     result = await db.execute(stmt)
     db_reset_token = result.unique().scalar_one_or_none()
     if db_reset_token:
@@ -205,41 +237,46 @@ async def reset_complete_password(
 
 @accounts.post("/login/", status_code=200)
 async def login_account(
-        account_schema: AccountLoginSchema,
-        db: AsyncSession = Depends(get_async_db)
+    account_schema: AccountLoginSchema,
+    db: AsyncSession = Depends(get_async_db),
 ):
     db_user = await get_user_by_email(str(account_schema.email), db)
     if db_user:
-        if verify_password(account_schema.password, str(db_user.hashed_password)):
+        if verify_password(
+            account_schema.password, str(db_user.hashed_password)
+        ):
             if not db_user.is_active:
-                raise HTTPException(status_code=403, detail="User account is not active")
+                raise HTTPException(
+                    status_code=403, detail="User account is not active"
+                )
             try:
                 refresh_token = create_token(
                     data={
                         "type": "refresh",
                         "user_id": db_user.id,
                     },
-                    expires_delta = datetime.timedelta(minutes=REFRESH_TOKEN_EXPIRE_MINUTES)
+                    expires_delta=datetime.timedelta(
+                        minutes=REFRESH_TOKEN_EXPIRE_MINUTES
+                    ),
                 )
                 refresh_token_db = RefreshToken(
                     user_id=db_user.id,
                     token=refresh_token,
-                    expires_at=datetime.datetime.now(timezone.utc) + datetime.timedelta(
-                            minutes=REFRESH_TOKEN_EXPIRE_MINUTES)
+                    expires_at=datetime.datetime.now()
+                    + datetime.timedelta(minutes=REFRESH_TOKEN_EXPIRE_MINUTES),
                 )
                 db.add(refresh_token_db)
                 await db.commit()
 
                 access_token = create_token(
-                    data={
-                        "type": "access",
-                        "user_id": db_user.id
-                    },
-                    expires_delta = datetime.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+                    data={"type": "access", "user_id": db_user.id},
+                    expires_delta=datetime.timedelta(
+                        minutes=ACCESS_TOKEN_EXPIRE_MINUTES
+                    ),
                 )
                 return {
                     "access_token": access_token,
-                    "refresh_token": refresh_token
+                    "refresh_token": refresh_token,
                 }
             except Exception as exc:
                 raise HTTPException(status_code=500, detail=str(exc))
@@ -248,8 +285,8 @@ async def login_account(
 
 @accounts.post("/refresh/", status_code=200)
 async def refresh_token(
-        account_schema: RefreshTokenSchema,
-        db: AsyncSession = Depends(get_async_db)
+    account_schema: RefreshTokenSchema,
+    db: AsyncSession = Depends(get_async_db),
 ):
     refresh_token = account_schema.refresh_token
     decode_token(refresh_token)
@@ -258,11 +295,10 @@ async def refresh_token(
     refresh_token_db = result.unique().scalar_one_or_none()
     if refresh_token_db:
         access_token = create_token(
-            data={
-                "type": "access",
-                "user_id": refresh_token_db.user_id
-            },
-            expires_delta=datetime.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+            data={"type": "access", "user_id": refresh_token_db.user_id},
+            expires_delta=datetime.timedelta(
+                minutes=ACCESS_TOKEN_EXPIRE_MINUTES
+            ),
         )
         return {"access_token": access_token}
     raise HTTPException(status_code=400, detail="Invalid refresh token")
@@ -270,9 +306,9 @@ async def refresh_token(
 
 @accounts.post("/logout/", status_code=200)
 async def logout_account(
-        account_schema: AccountLogoutSchema,
-        header: str = Depends(authorization_header),
-        db: AsyncSession = Depends(get_async_db)
+    account_schema: AccountLogoutSchema,
+    header: str = Depends(authorization_header),
+    db: AsyncSession = Depends(get_async_db),
 ):
     access_token = validate_access_token(header)
     stmt = select(RefreshToken).filter_by(token=account_schema.refresh_token)
@@ -288,20 +324,22 @@ async def logout_account(
 
 @accounts.post("/create_profile/")
 async def create_profile(
-        first_name: str = Form(None),
-        last_name: str = Form(None),
-        gender: GenderEnum = Form(None),
-        date_of_birth: datetime.date = Form(None),
-        info: str = Form(),
-        avatar: UploadFile = File(),
-        header: str = Depends(authorization_header),
-        db: AsyncSession = Depends(get_async_db)
+    first_name: str = Form(None),
+    last_name: str = Form(None),
+    gender: GenderEnum = Form(None),
+    date_of_birth: datetime.date = Form(None),
+    info: str = Form(),
+    avatar: UploadFile = File(),
+    header: str = Depends(authorization_header),
+    db: AsyncSession = Depends(get_async_db),
 ):
     access_token = validate_access_token(header)
     user_id = access_token["user_id"]
     user_db = await get_user_by_id(user_id, db)
     if user_db.user_profile:
-        raise HTTPException(status_code=400, detail="User profile already exist")
+        raise HTTPException(
+            status_code=400, detail="User profile already exist"
+        )
 
     image = await put_image_to_minio(avatar, user_id)
     profile_schema = ProfileCreateRequestSchema(
@@ -311,7 +349,7 @@ async def create_profile(
         date_of_birth=date_of_birth,
         info=info,
         avatar=image.object_name,
-        user_id=user_id
+        user_id=user_id,
     )
     profile_db = UserProfile(**profile_schema.model_dump())
     db.add(profile_db)
@@ -321,15 +359,17 @@ async def create_profile(
 
 @accounts.post("/change_account/")
 async def change_account_state(
-        account_change_schema: AccountChangeSchema,
-        header: str = Security(authorization_header),
-        db: AsyncSession = Depends(get_async_db)
+    account_change_schema: AccountChangeSchema,
+    header: str = Security(authorization_header),
+    db: AsyncSession = Depends(get_async_db),
 ):
     access_token = validate_access_token(header)
     user_id = access_token["user_id"]
     user_db = await get_user_by_id(user_id, db)
     if user_db.group_id != 3:
-        raise HTTPException(status_code=403, detail="Not enough permissions for this operation")
+        raise HTTPException(
+            status_code=403, detail="Not enough permissions for this operation"
+        )
     user_to_change = await get_user_by_id(account_change_schema.user_id, db)
     if user_to_change:
         try:
@@ -337,9 +377,9 @@ async def change_account_state(
             user_to_change.is_active = account_change_schema.is_active
             await db.commit()
         except Exception as exc:
-            raise HTTPException(
-                status_code=500,
-                detail=str(exc)
-            )
+            raise HTTPException(status_code=500, detail=str(exc))
         return user_to_change
-    raise HTTPException(status_code=400, detail=f"User with id: {account_change_schema.user_id} not exist")
+    raise HTTPException(
+        status_code=400,
+        detail=f"User with id: {account_change_schema.user_id} not exist",
+    )

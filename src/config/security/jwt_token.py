@@ -16,6 +16,7 @@ def create_token(data: dict, expires_delta: datetime.timedelta = 15):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+
 def decode_token(token: str):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -29,7 +30,9 @@ def validate_access_token(header: str) -> dict:
         split_header = header.split()
         if split_header:
             if split_header[0] != "Bearer" or len(split_header) != 2:
-                raise HTTPException(status_code=401, detail="Invalid token format")
+                raise HTTPException(
+                    status_code=401, detail="Invalid token format"
+                )
             token = decode_token(split_header[1])
             if token["type"] == "access":
                 return token
