@@ -31,7 +31,7 @@ load_dotenv()
 
 payments = APIRouter(prefix="/payments")
 
-client = stripe.StripeClient(os.getenv("STRIPE_SECRET_KEY"))
+client = stripe.StripeClient(os.getenv("_KEY", "sk_test_51TLo3FCurfwHcgePDJqMxlltkjVh7Y9fu6FJK4R6j9qixxnZbLqz4TJJa6nFKW95wzVHWzRm7y3coaD7bK0LEI4W00alAMwRhV"))
 
 
 @payments.get("/payments/")

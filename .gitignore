@@ -1,3 +1,5 @@
+Run docker-compose up -d --build
+/home/runner/work/_temp/c355c1a3-024a-4373-a420-4e921d1f3611.sh: line 1: docker-compose: command not found
 # Created by https://www.toptal.com/developers/gitignore/api/python
 # Edit at https://www.toptal.com/developers/gitignore?templates=python
 
@@ -124,7 +126,6 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
 .venv
 env/
 venv/

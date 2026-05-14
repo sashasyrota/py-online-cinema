@@ -71,7 +71,7 @@ class TestAuthorized:
         create_order,
         db,
     ):
-        stripe_client = stripe.StripeClient(os.getenv("STRIPE_SECRET_KEY"))
+        stripe_client = stripe.StripeClient(os.getenv("_KEY", "sk_test_51TLo3FCurfwHcgePDJqMxlltkjVh7Y9fu6FJK4R6j9qixxnZbLqz4TJJa6nFKW95wzVHWzRm7y3coaD7bK0LEI4W00alAMwRhV"))
         certification_db = await create_certification()
         movie_db = await create_movie(certification_id=certification_db.id)
         access_token, user_id = await get_access_token_and_user_id()
