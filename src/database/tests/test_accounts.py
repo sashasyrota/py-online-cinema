@@ -1,8 +1,11 @@
 import json
+import os
 
+import boto3
 import pytest
 from httpx import AsyncClient
 from httpx._types import RequestFiles
+from minio import Minio
 from sqlalchemy import select
 
 from src.database.models import User, RefreshToken, UserProfile
@@ -308,6 +311,14 @@ class TestAuthorized:
     async def test_create_user_profile(
         self, client, create_user, db, image_in_memory
     ):
+        s3 = boto3.client('s3',
+                  endpoint_url=f'http://{os.getenv("MINIO_HOST")}:{os.getenv("MINIO_PORT")}',
+                  aws_access_key_id="myuser",
+                  aws_secret_access_key="mysecretpassword")
+
+        if not s3.list_buckets():
+            s3.create_bucket(Bucket='avatars')
+
         db_user = await create_user()
         db_user.is_active = True
         await db.commit()

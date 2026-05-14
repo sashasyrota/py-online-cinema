@@ -1,6 +1,7 @@
 import io
 import os
 
+import boto3
 from minio import Minio
 from fastapi import UploadFile, HTTPException
 
@@ -10,7 +11,6 @@ client = Minio(
     secret_key="mysecretpassword",
     secure=False,
 )
-
 
 async def put_image_to_minio(avatar: UploadFile, user_id: int):
     avatar_file = await avatar.read()

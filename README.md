@@ -19,7 +19,11 @@ This application provides a system of managing online-cinema. Consistent CRUD mo
    docker-compose up --build
    ```
 
-After running, you can test app in browser:
+4. Create bucket for avatars in minio:
+http://127.0.0.1:9001/browser/avatars
+5. 
+
+After running and creating bucket, you can test app in browser:
 http://127.0.0.1:8000
 
 Application documentation:
