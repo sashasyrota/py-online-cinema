@@ -1,0 +1,28 @@
+name: Testing CI
+
+on:
+  pull_request:
+    branches:
+      - "*"
+  push:
+    branches:
+      - "master"
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Run Docker Compose
+        run: docker compose up -d --build
+
+      - name: Run tests in docker container
+        run: docker exec online_cinema_container pytest
+
+      - name: Stop Containers
+        if: always()
+        run: docker compose down
+
