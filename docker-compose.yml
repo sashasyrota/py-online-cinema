@@ -102,7 +102,10 @@ services:
       context: .
     command: celery -A src.database.celery_beat_conf beat --loglevel=info
     depends_on:
-      - celery_worker
+      migrator:
+        condition: service_completed_successfully
+      celery_worker:
+        condition: service_started
     networks:
       - theater_network
 

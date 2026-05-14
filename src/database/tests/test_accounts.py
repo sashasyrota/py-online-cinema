@@ -1,14 +1,21 @@
+import datetime
 import json
 import os
+import subprocess
+from unittest.mock import patch
 
 import boto3
 import pytest
+from celery.schedules import crontab
 from httpx import AsyncClient
 from httpx._types import RequestFiles
 from minio import Minio
 from sqlalchemy import select
 
+from src.database.celery_beat_conf import app
+from src.database.models import Token, ActivationToken, PasswordResetToken
 from src.database.models import User, RefreshToken, UserProfile
+from src.tasks import expired_tokens
 
 account_prefix = "/api/v1/accounts/"
 
@@ -315,8 +322,7 @@ class TestAuthorized:
                   endpoint_url=f'http://{os.getenv("MINIO_HOST")}:{os.getenv("MINIO_PORT")}',
                   aws_access_key_id="myuser",
                   aws_secret_access_key="mysecretpassword")
-
-        if not s3.list_buckets():
+        if not s3.list_buckets()["Buckets"]:
             s3.create_bucket(Bucket='avatars')
 
         db_user = await create_user()
@@ -446,6 +452,45 @@ class TestAuthorized:
             decode_user_change_state_response["detail"]
             == "Not enough permissions for this operation"
         )
+
+    @pytest.mark.asyncio
+    async def test_celery_delete_expired_tokens_func(
+            self, create_user, db
+    ):
+        user_db = await create_user()
+        expired_activation_token = ActivationToken(
+            user_id=user_db.id,
+            token="test_token",
+            expires_at=datetime.datetime.now() - datetime.timedelta(minutes=15)
+        )
+        expired_reset_token = PasswordResetToken(
+            user_id=user_db.id,
+            token="test_token",
+            expires_at=datetime.datetime.now() - datetime.timedelta(minutes=15)
+        )
+        expired_refresh_token = RefreshToken(
+            user_id=user_db.id,
+            token="test_token",
+            expires_at=datetime.datetime.now() - datetime.timedelta(minutes=15)
+        )
+        db.add(expired_activation_token)
+        db.add(expired_refresh_token)
+        db.add(expired_reset_token)
+        await db.commit()
+
+        expired_tokens.run()
+        for token in (RefreshToken, ActivationToken, PasswordResetToken):
+            stmt = select(token)
+            result = await db.execute(stmt)
+            token_db = result.unique().scalars().all()
+            assert token_db == []
+
+    async def test_celery_beat_schedule_used(self):
+        schedule = app.conf.beat_schedule
+        assert "delete_every_day_in_7_00_utc" in app.conf.beat_schedule
+        assert schedule["delete_every_day_in_7_00_utc"]["task"] == "src.tasks.expired_tokens"
+        assert schedule["delete_every_day_in_7_00_utc"]["schedule"] == crontab(hour=7)
+
 
 
 class TestIsAdmin:
