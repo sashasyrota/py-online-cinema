@@ -9,4 +9,4 @@ per-file-ignores =
     movies.py: F401
     session.py: E231
     s3_controller.py: E231
-
+    celery_beat_conf.py: F401
